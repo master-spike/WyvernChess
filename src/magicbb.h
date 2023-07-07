@@ -37,6 +37,7 @@ class MagicBB {
     U64* table;
     int bits;
   public:
+    MagicBB() : square(0), magicnum(0), mask(0), table(nullptr), bits(0){};
     MagicBB(int sq, U64 mg, U64 ms, U64* tb, int b);
     U64 compute(U64 blockers);
     
@@ -49,7 +50,10 @@ class MagicBB {
 
   template<enum PieceType PT>
   U64 generateAttacks(int p, U64 blockers);
-
+  
+  U64* initialiseAllMagics(MagicBB* bishops, MagicBB* rooks);
 
 }
+
+
 #endif

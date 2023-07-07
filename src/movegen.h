@@ -4,6 +4,7 @@
 #include "position.h"
 #include "types.h"
 #include "magicbb.h"
+#include <array>
 
 namespace Wyvern {
 
@@ -28,8 +29,10 @@ private:
   U64 king_attack_table[64];
   MagicBB rook_magics[64];
   MagicBB bishop_magics[64];
+  U64* magic_table;
 public:
   MoveGenerator();
+  MoveGenerator(const MoveGenerator& in_mg) = delete;
   int generateMoves(Position& pos, U16* outMoves, bool quiets = true);
   ~MoveGenerator();
 };

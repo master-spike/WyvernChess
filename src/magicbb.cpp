@@ -162,7 +162,7 @@ U64 MagicBB::compute(U64 blockers) {
   return table[blockers];
 }
 
-const U64 rook_magics[64] = {
+const U64 rook_magic_numbers[64] = {
   0x2480016b10804008ULL,
   0x030010462100000aULL,
   0x0100112049000181ULL,
@@ -229,7 +229,7 @@ const U64 rook_magics[64] = {
   0x4241004800090012ULL
 };
 
-const U64 bishop_magics[64] = {
+const U64 bishop_magic_numbers[64] = {
   0x4804200204002884ULL,
   0x10060800c444a180ULL,
   0x020800cc00201090ULL,
@@ -295,5 +295,33 @@ const U64 bishop_magics[64] = {
   0x0000104000000008ULL,
   0x4050003040000000ULL
 };
+
+  U64* initialiseAllMagics(MagicBB* bishops, MagicBB* rooks) {
+    size_t table_size = 0;
+    size_t table_size_bishop = 0;
+    for (int i = 0; i < 64; i++) {
+      table_size += (1ULL << magicBBits[i]) + (1ULL << magicRBits[i]);
+      table_size_bishop += (1ULL << magicBBits[i]);
+    }
+    U64* table = new U64[table_size];
+    if (!table) return 0;
+    U64* iter = table;
+    for (int i = 0; i < 64 && iter < table + table_size_bishop; iter += (1ULL << magicBBits[i]), ++i) {
+      bishops[i] = MagicBB(i, bishop_magic_numbers[i], getPremask<BISHOP>(i), iter, magicBBits[i]);
+      if (bishops[i].initialise<BISHOP>()){
+        delete[] table;
+        return 0;
+      }
+    }
+    for (int i = 0; i < 64 && iter < table + table_size; iter += (1ULL << magicRBits[i]), ++i) {
+      rooks[i] = MagicBB(i, rook_magic_numbers[i], getPremask<ROOK>(i), iter, magicRBits[i]);
+      if (rooks[i].initialise<ROOK>()){
+        delete[] table;
+        return 0;
+      }
+    }
+
+    return table;
+  }
 
 }

@@ -45,4 +45,35 @@ template<enum Color CT> U64 MoveGenerator::bbPawnRightCaptures(const U64& pawns,
   return 0;
 }
 
+MoveGenerator::MoveGenerator()
+:knight_attack_table({})
+,king_attack_table({})
+,rook_magics({})
+,bishop_magics({})
+,magic_table(nullptr) {
+  magic_table = initialiseAllMagics(bishop_magics, rook_magics);
+  for (int i = 0; i < 64; i++) {
+    U64 kf = (1ULL << i) | (1ULL << i + 8) | (1ULL << i-8);
+    U64 kfr = (kf << 1) & ~(0x0101010101010101ULL);
+    U64 kfl = (kf >> 1) & ~(0x8080808080808080ULL);
+    king_attack_table[i] = (kf | kfr | kfl) & ~(1ULL < i);
+
+    U64 filem = 0x0101010101010101ULL << (i % 8);
+    U64 filer = (filem << 1) & ~(0x0101010101010101ULL);
+    U64 filel = (filem >> 1) & ~(0x8080808080808080ULL);
+    U64 filerr = (filer << 1) & ~(0x0101010101010101ULL);
+    U64 filell =  (filer >> 1) & ~(0x8080808080808080ULL);
+    U64 ranktt = 0xFFULL << (i - (i%8) + 2*8);
+    U64 rankt = 0xFFULL << (i - (i%8) + 8);
+    U64 rankb = 0xFFULL << (i - (i%8) - 8);
+    U64 rankbb = 0xFFULL << (i - (i%8) - 2*8);
+    knight_attack_table[i]  = (ranktt | rankbb) & (filer | filel);
+    knight_attack_table[i] |= (filell | filerr) & (rankt | rankb);
+  }
+}
+
+MoveGenerator::~MoveGenerator() {
+  delete[] magic_table;
+}
+
 }
