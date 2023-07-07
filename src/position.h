@@ -32,7 +32,6 @@ public:
   U64* getPieceColors() const;
   U64* getPieces() const;
   enum Color getToMove() const;
-  template<enum Color CT> U64 squareAttackedBy(int p);
 };
 
 }
