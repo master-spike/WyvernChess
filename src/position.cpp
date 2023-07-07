@@ -39,14 +39,6 @@ int Position::makeMove(U16 move) {
   position_history.emplace_back(zobrist2);
 }
 
-template<enum Color CT>
-U64 Position::squareAttackedBy(int p) {
-  U64 blockers = piece_colors[0] | piece_colors[1];
-  U64 potential_attackers = piece_colors[CT];
-  U64 attackers = 0;
-  attackers |= pieces[CT*6 + QUEEN];
-}
-
 enum Color Position::getToMove() const {
   return tomove;
 }
