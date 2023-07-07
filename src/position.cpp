@@ -23,7 +23,7 @@ int Position::makeMove(U16 move) {
   if (special == NORMAL) {
     piece_colors[tomove] ^= ibb ^ tbb;
     pieces[pt] ^= ibb ^ tbb;
-    if (pt == PAWN && (ibb / tbb == 16 || tbb / ibb == 16))
+    if (pt == (PAWN-1) && (ibb / tbb == 16 || tbb / ibb == 16))
       ep_square = ((ibb >> 8) & (tbb << 8)) | ((ibb << 8) & (tbb >> 8));
   }
   if (special == PROMO) {
@@ -37,6 +37,14 @@ int Position::makeMove(U16 move) {
   move_history.emplace_back(move);
   capture_history.emplace_back((ptc + 1)%7);
   position_history.emplace_back(zobrist2);
+}
+
+template<enum Color CT>
+U64 Position::squareAttackedBy(int p) {
+  U64 blockers = piece_colors[0] | piece_colors[1];
+  U64 potential_attackers = piece_colors[CT];
+  U64 attackers = 0;
+  attackers |= pieces[CT*6 + QUEEN];
 }
 
 enum Color Position::getToMove() const {

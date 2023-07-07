@@ -45,6 +45,22 @@ template<enum Color CT> U64 MoveGenerator::bbPawnRightCaptures(const U64& pawns,
   return 0;
 }
 
+template<enum Color CT> // CT is attacker
+U64 MoveGenerator::squareAttackedBy(int p, const Position& pos) {
+  U64* pcols = pos.getPieceColors();
+  U64* pcs_atk = pos.getPieces() + CT*6;
+  U64 blockers = pcols[0] | pcols[1];
+  U64 potential_attackers = pcols[CT];
+  U64 attackers = 0;
+  attackers |= pcs_atk[QUEEN-1] & (bishop_magics[p].compute(blockers) | rook_magics[p].compute(blockers));
+  attackers |= pcs_atk[ROOK-1] & (rook_magics[p].compute(blockers));
+  attackers |= pcs_atk[BISHOP-1] & (bishop_magics[p].compute(blockers));
+  attackers |= pcs_atk[KNIGHT-1] & knight_attack_table[p];
+  attackers |= pcs_atk[KING-1] & king_attack_table[p];
+  attackers |= bbPawnLeftCaptures<(CT ^ 1>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
+  attackers |= bbPawnRightCaptures<(CT ^ 1)/2>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
+}
+
 MoveGenerator::MoveGenerator()
 :knight_attack_table({})
 ,king_attack_table({})

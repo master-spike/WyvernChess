@@ -2,6 +2,7 @@
 #define H_GUARD_POSITION
 
 #include "types.h"
+#include "movegen.h"
 #include <vector>
 
 namespace Wyvern {
@@ -31,6 +32,7 @@ public:
   U64* getPieceColors() const;
   U64* getPieces() const;
   enum Color getToMove() const;
+  template<enum Color CT> U64 squareAttackedBy(int p);
 };
 
 }

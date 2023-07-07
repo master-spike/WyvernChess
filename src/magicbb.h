@@ -51,6 +51,8 @@ class MagicBB {
   template<enum PieceType PT>
   U64 generateAttacks(int p, U64 blockers);
   
+  // returns a pointer to the allocated memory segment for all the lookup tables for deletion
+  // by anything which uses it. This is probably not good practice.
   U64* initialiseAllMagics(MagicBB* bishops, MagicBB* rooks);
 
 }
