@@ -31,10 +31,10 @@ private:
   MagicBB bishop_magics[64];
   U64* magic_table;
 public:
-  template<enum Color CT> U64 squareAttackedBy(int p, const Position& pos);
+  template<enum Color CT> U64 squareAttackedBy(int p, const Position& pos, U64 custom_blockers = 0);
   MoveGenerator();
   MoveGenerator(const MoveGenerator& in_mg) = delete;
-  int generateMoves(Position& pos, U16* outMoves, bool quiets = true);
+  template<enum Color CT> int generateMoves(Position& pos, U16* outMoves);
   ~MoveGenerator();
 };
 

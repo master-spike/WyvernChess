@@ -2,11 +2,13 @@
 
 namespace Wyvern {
 
+
+template<enum Color CT>
 int Search::negamax(Position& pos, int depth, int alpha, int beta) {
   // if terminal return draw, win, loss as appropriate
   // todo if
   U16 moves[220];
-  int num_moves = movegen.generateMoves(pos, moves, true);
+  int num_moves = movegen.generateMoves<CT>(pos, moves, true);
   if (num_moves == 0) {
     //terminal, return mate or stalemate
   }

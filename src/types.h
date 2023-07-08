@@ -29,6 +29,11 @@ namespace Wyvern {
     
     CR_UNDEF = 16 
   };
+
+  enum MoveFilters : U32 {
+    ALL_MOVES = UINT32_MAX,
+    FMOVE_QUIETS = 1
+  };
   
 }
 

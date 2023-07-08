@@ -45,11 +45,33 @@ template<enum Color CT> U64 MoveGenerator::bbPawnRightCaptures(const U64& pawns,
   return 0;
 }
 
+template<enum Color CT> U64 MoveGenerator::bbCastles(const Position& pos, const U64& checkmask) {
+  enum CastlingRights cr = pos.getCR() & ((CT = COLOR_WHITE) ? CR_WHITE : CR_BLACK);
+  if (checkmask) return 0;
+  U64 qs_path = 0x0EULL << (56 * CT);
+  U64 ks_path = 0x60ULL << (56 * CT);
+  U64 blockers = pos.getPieceColors[0];
+  blockers |= pos.getPieceColors[1];
+  int king = __builtin_ctzll(pos.getPieces[KING-1] & pos.getPieceColors[CT]);
+  U64 out_bb = 0;
+  if ((cr & CR_QUEEN) && !(qs_path & blockers)) {
+    if (!squareAttackedBy<CT ^ 1>(king-1, pos) && !squareAttackedBy<CT ^ 1>(king-2, pos)) {
+      out_bb |= 1ULL << (king-2);
+    }
+  }
+  if ((cr & CR_KING) && !(ks_path & blockers)) {
+    if (!squareAttackedBy<CT ^ 1>(king+1, pos) && !squareAttackedBy<CT ^ 1>(king+2, pos)) {
+      out_bb |= 1ULL << (king+2);
+    }
+  }
+  return out_bb;
+}
+
 template<enum Color CT> // CT is attacker
-U64 MoveGenerator::squareAttackedBy(int p, const Position& pos) {
+U64 MoveGenerator::squareAttackedBy(int p, const Position& pos, U64 custom_blockers = 0) {
   U64* pcols = pos.getPieceColors();
   U64* pcs_atk = pos.getPieces() + CT*6;
-  U64 blockers = pcols[0] | pcols[1];
+  U64 blockers = (custom_blockers) ? custom_blockers : pcols[0] | pcols[1];
   U64 potential_attackers = pcols[CT];
   U64 attackers = 0;
   attackers |= pcs_atk[QUEEN-1] & (bishop_magics[p].compute(blockers) | rook_magics[p].compute(blockers));
@@ -57,8 +79,62 @@ U64 MoveGenerator::squareAttackedBy(int p, const Position& pos) {
   attackers |= pcs_atk[BISHOP-1] & (bishop_magics[p].compute(blockers));
   attackers |= pcs_atk[KNIGHT-1] & knight_attack_table[p];
   attackers |= pcs_atk[KING-1] & king_attack_table[p];
-  attackers |= bbPawnLeftCaptures<(CT ^ 1>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
-  attackers |= bbPawnRightCaptures<(CT ^ 1)/2>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
+  attackers |= bbPawnLeftCaptures<CT^1>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
+  attackers |= bbPawnRightCaptures<CT^1>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
+}
+
+template<enum Color CT> int MoveGenerator::generateMoves(Position& pos, U16* outMoves) {
+  if constexpr (CT > 1) return 0;
+  U64 pieces[6];
+  U64 piece_colors[2];
+  {
+    U64* pcls = pos.getPieceColors();
+    U64* pcs = pos.getPieces();
+    for (int i = 0; i < 6; i++) pieces[i] = pcs[i];
+    piece_colors[0] = pcls[0];
+    piece_colors[1] = pcls[1];
+  }
+  U64 blockers = piece_colors[0] | piece_colors[1];
+  int myking = __builtin_ctzll(pieces[KING-1] & piece_colors[CT]); 
+  U64 checkmask = 0xFFFFFFFFFFFFFFFFULL; // sneaky all bits set
+  U64 checkers = squareAttackedBy<CT^1>(myking, pos);
+  if (__builtin_popcountll(checkers) > 1) checkmask = 0; // if double check, we can skip all non-king moves
+  else if (checkers) {
+    enum Piece checker_piece = pos.pieceAtSquare(checkers);
+    switch(checker_piece) {
+      case PAWN:
+        checkmask = checker_piece;
+      case KNIGHT:
+        checkmask = checker_piece;
+        break;
+      default:
+        checkmask = boardRay(__builtin_ctzll(checkers), myking) & ~(1ULL << myking);
+    }
+  }
+  // checkmask now holds all possible target squares to block or capture a checking piece if applicable
+  if (checkmask) {
+    U64 possibly_pinned = bishop_magics[myking].compute(blockers) | rook_magics[myking].compute(blockers);
+    U64 enemy_queens = pieces[QUEEN-1] & piece_colors[CT^1];
+    U64 enemy_rooks = pieces[ROOK-1] & piece_colors[CT^1];
+    U64 enemy_bishops = pieces[BISHOP-1] & piece_colors[CT^1];
+    U64 enemy_knights = pieces[KNIGHT-1] & piece_colors[CT^1];
+    U64 enemy_pawns = pieces[PAWN-1] & piece_colors[CT^1];
+    U64 empty_space = ~(blockers);
+    
+    // do pawn captures of all pieces first, in order of piece value.
+    U64 pxql = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_queens);
+    U64 pxqr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_queens);
+    U64 pxrl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_rooks);
+    U64 pxrr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_rooks);
+    U64 pxbl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops);
+    U64 pxbr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops);
+    U64 pxnl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_knights);
+    U64 pxnl = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_knights);
+    
+    
+  }
+  // king moves
+
 }
 
 MoveGenerator::MoveGenerator()

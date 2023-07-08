@@ -29,9 +29,11 @@ public:
   void printPretty() const;
   int getHMC() const;
   int getFMC() const;
+  enum CastlingRights getCR();
   U64* getPieceColors() const;
   U64* getPieces() const;
   enum Color getToMove() const;
+  enum PieceType pieceAtSquare(int sq);
 };
 
 }

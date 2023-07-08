@@ -27,6 +27,4 @@ inline int popCount64(U64 v) {
     return __builtin_popcountll(v);
 }
 
-
-
 #endif

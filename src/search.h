@@ -18,7 +18,12 @@ private:
   Position position;
   MoveGenerator movegen;
 public:
+  Search() = default;
+  Search(const Position& pos);
+
+  template<enum Color CT>
   int negamax(Position& pos, int depth, int alpha, int beta);
+  ~Search() = default;
 };
   
 }
