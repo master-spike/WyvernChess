@@ -14,7 +14,6 @@ int Position::makeMove(U16 move) {
   int pt = 0;
   while (pt < 6 && !(pieces[pt] & ibb)) pt++;
   if (pt == 6 || !(piece_colors[tomove] & ibb)) {
-    std::cout << "invalid start square for move " << move << "\n";
     return 1;
   }
   int ptc = 0;
@@ -30,6 +29,11 @@ int Position::makeMove(U16 move) {
     piece_colors[tomove] ^= ibb ^ tbb;
     pieces[promo_piece] ^= tbb;
   }
+
+  // castling
+  // en passant
+  // TODO
+
   if (ptc < 6) {
     piece_colors[(tomove+1)&1] ^= tbb;
     pieces[ptc] ^= tbb;

@@ -28,19 +28,19 @@ template<enum Color CT> U64 MoveGenerator::bbPawnDoublePushes(const U64& pawns, 
 }
 template<enum Color CT> U64 MoveGenerator::bbPawnLeftCaptures(const U64& pawns, const U64& postmask, const U64& capturables) {
   if constexpr (CT == COLOR_WHITE) {
-    return (pawns << 7) & postmask & capturables & ~(0x0101010101010101ULL);
+    return ((pawns << 7) & postmask & capturables & ~(0x0101010101010101ULL)) >> 7;
   }
   if constexpr (CT == COLOR_BLACK) {
-    return (pawns >> 7) & postmask & capturables & ~(0x8080808080808080ULL);
+    return ((pawns >> 7) & postmask & capturables & ~(0x8080808080808080ULL)) << 7;
   }
   return 0;
 }
 template<enum Color CT> U64 MoveGenerator::bbPawnRightCaptures(const U64& pawns, const U64& postmask, const U64& capturables) {
   if constexpr (CT == COLOR_WHITE) {
-    return (pawns << 9) & postmask & capturables & ~(0x8080808080808080ULL);
+    return ((pawns << 9) & postmask & capturables & ~(0x8080808080808080ULL)) >> 9;
   }
   if constexpr (CT == COLOR_BLACK) {
-    return (pawns >> 9) & postmask & capturables & ~(0x0101010101010101ULL);
+    return ((pawns >> 9) & postmask & capturables & ~(0x0101010101010101ULL)) << 9;
   }
   return 0;
 }
@@ -83,6 +83,29 @@ U64 MoveGenerator::squareAttackedBy(int p, const Position& pos, U64 custom_block
   attackers |= bbPawnRightCaptures<CT^1>(1ULL << p, king_attack_table[p], pcs_atk[PAWN-1]);
 }
 
+// responsibility on caller to calculate pp_d and pp_o which are possibly pinned pieces diag and ortho resp.
+U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king, U64 enemy_diag, U64 enemy_orth) {
+  U64 p_bit = 1ULL << p;
+  U64 pinmask = 0xFFFFFFFFFFFFFFFFULL;
+  U64 bl_m_p = blockers & ~p_bit;
+  if (pp_d & p_bit) {
+    U64 bl_m_p = blockers & ~p_bit;
+    U64 kattack_through_p = bishop_magics[king].compute(bl_m_p);
+    U64 pinner = bishop_magics[p].compute(blockers)
+                 & kattack_through_p;
+                 & (enemy_diag);
+    if (pinner) pinmask = kattack_through_p & (bishop_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
+  }
+  else if (pp_o & p_bit) {
+    U64 kattack_through_p = rook_magics[king].compute(bl_m_p);
+    U64 pinner = rook_magics[p].compute(blockers)
+                 & kattack_through_p;
+                 & (enemy_orth);
+    if (pinner) pinmask = kattack_through_p & (rook_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
+  }
+  return pinmask;
+}
+
 template<enum Color CT> int MoveGenerator::generateMoves(Position& pos, U16* outMoves) {
   if constexpr (CT > 1) return 0;
   U64 pieces[6];
@@ -111,9 +134,11 @@ template<enum Color CT> int MoveGenerator::generateMoves(Position& pos, U16* out
         checkmask = boardRay(__builtin_ctzll(checkers), myking) & ~(1ULL << myking);
     }
   }
+  int move_count = 0;
   // checkmask now holds all possible target squares to block or capture a checking piece if applicable
   if (checkmask) {
-    U64 possibly_pinned = bishop_magics[myking].compute(blockers) | rook_magics[myking].compute(blockers);
+    U64 possibly_pinned_d = bishop_magics[myking].compute(blockers);
+    U64 possibly_pinned_o = rook_magics[myking].compute(blockers);
     U64 enemy_queens = pieces[QUEEN-1] & piece_colors[CT^1];
     U64 enemy_rooks = pieces[ROOK-1] & piece_colors[CT^1];
     U64 enemy_bishops = pieces[BISHOP-1] & piece_colors[CT^1];
@@ -123,15 +148,17 @@ template<enum Color CT> int MoveGenerator::generateMoves(Position& pos, U16* out
     
     // do pawn captures of all pieces first, in order of piece value.
     U64 pxql = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_queens);
+    for (; pxql; pxql = pxql & (pxql - 1)) {
+      int p = __builtin_ctzll(p);
+    }
     U64 pxqr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_queens);
     U64 pxrl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_rooks);
     U64 pxrr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_rooks);
-    U64 pxbl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops);
-    U64 pxbr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops);
-    U64 pxnl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_knights);
-    U64 pxnl = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_knights);
+    U64 pxbnl = bbPawnLeftCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops | enemy_knights);
+    U64 pxbnr = bbPawnRightCaptures<CT>(pieces[PAWN-1] & piece_colors[CT], checkmask, enemy_bishops | enemy_knights);
     
-    
+
+
   }
   // king moves
 
