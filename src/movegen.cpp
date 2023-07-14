@@ -91,6 +91,7 @@ U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king
   if (pp_d & p_bit) {
     U64 bl_m_p = blockers & ~p_bit;
     U64 kattack_through_p = bishop_magics[king].compute(bl_m_p);
+    // pinner can have at most 1 bit set because of math!
     U64 pinner = bishop_magics[p].compute(blockers)
                  & kattack_through_p;
                  & (enemy_diag);

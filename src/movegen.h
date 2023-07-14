@@ -25,6 +25,7 @@ private:
   template<enum Color CT> U64 bbPawnDoublePushes(const U64& pawns, const U64& postmask, const U64& bb_blockers);
   template<enum Color CT> U64 bbEnpassant(const Position& pos); // bits here are for the pawns that can DO enpassant
   int putMoves(int p, U64& targets, U16* outMoves);
+  U64 makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king, U64 enemy_diag, U64 enemy_orth);
   U64 knight_attack_table[64];
   U64 king_attack_table[64];
   MagicBB rook_magics[64];
