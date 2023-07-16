@@ -10,274 +10,161 @@
 namespace Wyvern {
 
 
-template<enum PieceType PT>
-U64 getPremask(int p) {
-  if (p >= 64 || p < 0) return 0;
-  if constexpr (PT == BISHOP) {
-    U64 left = FILE_A << (p & 7);
-    U64 right = left;
-    U64 up = RANK_1 << (p & 56);
-    U64 down = up;
-    U64 out = 0;
-    for (int i = 1; i < 8; ++i) {
-      left >>= 1;
-      left &= ~(FILE_H); // prevent wraparound
-      right <<= 1;
-      right &= ~(FILE_A); // prevent wraparound
-      up <<= 8;
-      down >>= 8;
-      out |= (left | right) & (up | down); 
-    }
-    return out;
-  }
-  else if constexpr (PT == ROOK) {
-    U64 file = FILE_A << (p & 7);
-    U64 rank = RANK_1 << (p & 56);
-    return file ^ rank; // xor to ensure 0 at intersection of f and r
-  }
-  else return 0; // we're only interested in sliders here
-}
-
-template<enum PieceType PT>
-int MagicBB::initialise() {
-  if (PT != ROOK && PT != BISHOP) return 1;
-  for (int i = 0; i < (1 << bits); ++i) {
-    table[i] = 0;
-  }
-  U64 blockers = 0;
-  for (int i = 0; i < (1 << bits); i++) {
-    U64 attacks = generateAttacks<PT>(square, blockers);
-    U64 index = (magicnum * blockers) >> (64 - bits);
-    if (!table[index]) table[index] = attacks;
-    else if (table[index] != attacks) return 1; 
-    blockers = (blockers - mask) & mask;
-  }
-  return 0;
-}
-
-template<enum PieceType PT>
-U64 generateAttacks(int p, U64 blockers) {
-  if constexpr(PT == ROOK) {
-    int q = p;
-    U64 out = 0;
-    // do up:
-    while(q < 64) {
-      q += 8;
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-    }
-    q = p;
-    while(q >= 0) {
-      q -= 8;
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-    }
-    q = p+1;
-    // do right
-    while((1ULL << q) & ~(FILE_A)) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q++;
-    }
-    q = p-1;
-    while((1ULL << q) & ~(FILE_H)) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q -= 1;
-    }
-    return out;
-  }
-  if constexpr(PT == BISHOP) {
-    U64 sq = 1ULL << p;
-    U64 out = 0;
-    int dir = 9;
-    U64 filter = FILE_A;
-    while (sq) {
-      sq <<= dir;
-      sq &= ~filter;
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    dir = 7;
-    while (sq) {
-      sq >>= dir;
-      sq &= ~filter;
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    filter = FILE_H;
-    while(sq) {
-      sq <<= dir;
-      sq &= ~filter;
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    dir = 9;
-    while(sq) {
-      sq >>= dir;
-      sq &= ~filter;
-      out |= sq;
-      sq &= ~blockers;
-    }
-    return out;
-  }
-  return 0;
-}
-
-template U64 findMagicNum<ROOK>(int p);
-template U64 findMagicNum<BISHOP>(int p);
-
-
-MagicBB::MagicBB(int sq, U64 mg, U64 ms, U64* tb, int b){
+MagicBB::MagicBB(int sq, U64 mg, U64 ms, int b){
   square = sq;
   magicnum = mg;
   mask = ms;
-  table = tb;
+  table = std::vector<U64>(1 << b, 0);
   bits = b;
+}
+
+MagicBB::MagicBB(const MagicBB& in_mbb) {
+  square = in_mbb.square;
+  magicnum = in_mbb.magicnum;
+  mask = in_mbb.mask;
+  table = in_mbb.table;
+  bits = in_mbb.bits;
 }
 
 U64 MagicBB::compute(U64 blockers) {
   blockers &= mask;
   blockers *= magicnum;
-  blockers >>= 64 - bits;
+  blockers = blockers >> (64 - bits);
   return table[blockers];
 }
 
 const U64 rook_magic_numbers[64] = {
-  0x4280008040102301ULL,
-  0x0008104023005008ULL,
-  0x0200104021080000ULL,
-  0x0200200810040000ULL,
-  0x96000a0212000000ULL,
-  0x0200090402086200ULL,
-  0x2200440102002518ULL,
-  0x0100124220850001ULL,
-  0x0021800080400002ULL,
-  0x6001400050205000ULL,
-  0x0206001448408020ULL,
-  0x0312001a20000290ULL,
-  0x0202000804080000ULL,
-  0x102a000200040e0dULL,
-  0x0884004102080000ULL,
-  0x0406000900a04800ULL,
-  0x8000224000400000ULL,
-  0x0040081000230080ULL,
-  0x02405200208000c1ULL,
-  0x0088120020104092ULL,
-  0x0790020006542008ULL,
-  0x0200020004040004ULL,
-  0x4202840003008084ULL,
-  0x0002820005005500ULL,
-  0x0468488080020840ULL,
-  0x8001004110000000ULL,
-  0x8100001008080040ULL,
-  0x8000010a00220800ULL,
-  0x12000011c0010102ULL,
-  0x2000000440010018ULL,
-  0x0400000400010002ULL,
-  0x4082844a00210001ULL,
-  0x0000008468200280ULL,
-  0x0000004001002080ULL,
-  0x0000008028200005ULL,
-  0x0002220172008900ULL,
-  0x0000402150020010ULL,
-  0x2000046448010800ULL,
-  0x0000000100800000ULL,
-  0x0200000041c00001ULL,
-  0x0000052080012004ULL,
-  0x0000114820202062ULL,
-  0xc000021001488402ULL,
-  0x8000008008008000ULL,
-  0x0000002040180800ULL,
-  0x0020001004080000ULL,
-  0x40000010020c2070ULL,
-  0x0200000100428000ULL,
-  0x0000005104420c00ULL,
-  0x0000040022060020ULL,
-  0x0000020018105c84ULL,
-  0x00000010000d0100ULL,
-  0x3000006008405000ULL,
-  0x00000004400a1000ULL,
-  0x0000000102840800ULL,
-  0x000000220400a800ULL,
-  0x0213004000208003ULL,
-  0x8100400010002001ULL,
-  0x4420010008001001ULL,
-  0x8403200840100004ULL,
-  0x6040402004888210ULL,
-  0x00a9080240142050ULL,
-  0x602401280210a010ULL,
-  0x105202c5000080b4ULL
+  0x8080008118604002ULL,
+  0x4040100040002002ULL,
+  0x0080100018e00380ULL,
+  0x0100041002200900ULL,
+  0x0200020008100420ULL,
+  0x4100040002880100ULL,
+  0x0080008002000100ULL,
+  0x8100014028820300ULL,
+  0x0860802080004008ULL,
+  0x0112004081020024ULL,
+  0x1042002010408200ULL,
+  0x00410010000b0020ULL,
+  0x0020800800800400ULL,
+  0x0004808026000400ULL,
+  0x0820800100800200ULL,
+  0x0d43000a00a04900ULL,
+  0x4080818000400068ULL,
+  0x0020818040002005ULL,
+  0x00a0010018410020ULL,
+  0x8010004008040041ULL,
+  0x0028008008800400ULL,
+  0x0809010002080400ULL,
+  0x1040240048311230ULL,
+  0x0088020000d28425ULL,
+  0x1480004440002010ULL,
+  0x2020400440201000ULL,
+  0x2000200080100080ULL,
+  0x1400280280300080ULL,
+  0x4028002500181100ULL,
+  0x8040040080800200ULL,
+  0x0800020400108108ULL,
+  0x003041120004408cULL,
+  0x0080804008800020ULL,
+  0x4010002000400040ULL,
+  0x2000100080802000ULL,
+  0x8300810804801000ULL,
+  0x8011001205000800ULL,
+  0x0810800601800400ULL,
+  0x4301083214000150ULL,
+  0x204026458e001401ULL,
+  0x0040204000808000ULL,
+  0x8001008040010020ULL,
+  0x8410820820420010ULL,
+  0x1003001000090020ULL,
+  0x0804040008008080ULL,
+  0x0012000810020004ULL,
+  0x1000100200040208ULL,
+  0x430000a044020001ULL,
+  0x0280009023410300ULL,
+  0x00e0100040002240ULL,
+  0x0000200100401700ULL,
+  0x2244100408008080ULL,
+  0x0008000400801980ULL,
+  0x0002000810040200ULL,
+  0x8010100228810400ULL,
+  0x2000009044210200ULL,
+  0x4080008040102101ULL,
+  0x0040002080411d01ULL,
+  0x2005524060000901ULL,
+  0x0502001008400422ULL,
+  0x489a000810200402ULL,
+  0x0001004400080a13ULL,
+  0x4000011008020084ULL,
+  0x0026002114058042ULL
 };
 
 const U64 bishop_magic_numbers[64] = {
   0x0420c80100408202ULL,
-  0x8082088200880000ULL,
-  0x0008064412000000ULL,
-  0x0004040090020600ULL,
-  0x0011104001024222ULL,
-  0x0002d00404008409ULL,
-  0x8084008888408800ULL,
-  0x0002402208124020ULL,
-  0x0002081110008010ULL,
-  0x0040b80800008245ULL,
-  0xa00450080080c1a0ULL,
-  0x0000024000002004ULL,
-  0x0020441400d91005ULL,
-  0x801044810000044aULL,
-  0x0008011100000000ULL,
-  0x000018d042084810ULL,
-  0x004120080a280040ULL,
-  0x8004144200000400ULL,
-  0x000401e0b0000000ULL,
-  0x0004100b40200808ULL,
-  0x0001000814000000ULL,
-  0x0000704028000000ULL,
-  0x0000452280102080ULL,
-  0x0192010082008113ULL,
-  0xe020120004a41400ULL,
-  0x2010140001300004ULL,
-  0x1004900008001400ULL,
-  0x0002008020100020ULL,
-  0x000084000a011000ULL,
-  0x0024428008400000ULL,
-  0x1003020410502508ULL,
-  0x1004012000908000ULL,
-  0x1004104012050000ULL,
-  0x4001100a00188014ULL,
-  0x1000206100404008ULL,
-  0x00000400a00b0400ULL,
-  0x00100200800a1031ULL,
-  0x0084004180804000ULL,
-  0x0008011903200000ULL,
-  0x0001040080107101ULL,
-  0x0001100211080000ULL,
-  0x201120d000540000ULL,
-  0x4048840088001000ULL,
-  0x4308005111000a00ULL,
-  0x0000a00200844004ULL,
-  0x0088010400200400ULL,
-  0x0114310180601401ULL,
-  0x0011064900c00304ULL,
-  0x4000888152000080ULL,
-  0x0010808410804830ULL,
-  0x140000aa00980001ULL,
-  0x0201000050400000ULL,
-  0x1802000c0c400150ULL,
-  0x000044a08200000cULL,
-  0x8011040184000048ULL,
-  0x0030048110500100ULL,
-  0x2000460805081008ULL,
-  0x6400008090980040ULL,
-  0xb000298c84012010ULL,
-  0x0600018203090004ULL,
-  0x4000200040048801ULL,
-  0x0001813002820000ULL,
-  0x2000300410008138ULL,
-  0x00100481104c8000ULL
+  0x1204311202260108ULL,
+  0x2008208102030000ULL,
+  0x00024081001000caULL,
+  0x0488484041002110ULL,
+  0x001a080c2c010018ULL,
+  0x00020a02a2400084ULL,
+  0x0440404400a01000ULL,
+  0x0008931041080080ULL,
+  0x0000200484108221ULL,
+  0x0080460802188000ULL,
+  0x4000090401080092ULL,
+  0x4000011040a00004ULL,
+  0x0020011048040504ULL,
+  0x2008008401084000ULL,
+  0x000102422a101a02ULL,
+  0x2040801082420404ULL,
+  0x8104900210440100ULL,
+  0x0202101012820109ULL,
+  0x0248090401409004ULL,
+  0x0044820404a00020ULL,
+  0x0040808110100100ULL,
+  0x0480a80100882000ULL,
+  0x184820208a011010ULL,
+  0x0110400206085200ULL,
+  0x0001050010104201ULL,
+  0x4008480070008010ULL,
+  0x8440040018410120ULL,
+  0x0041010000104000ULL,
+  0x4010004080241000ULL,
+  0x0001244082061040ULL,
+  0x0051060000288441ULL,
+  0x0002215410a05820ULL,
+  0x6000941020a0c220ULL,
+  0x00f2080100020201ULL,
+  0x8010020081180080ULL,
+  0x0940012060060080ULL,
+  0x0620008284290800ULL,
+  0x0008468100140900ULL,
+  0x418400aa01802100ULL,
+  0x4000882440015002ULL,
+  0x0000420220a11081ULL,
+  0x0401a26030000804ULL,
+  0x0002184208000084ULL,
+  0xa430820a0410c201ULL,
+  0x0640053805080180ULL,
+  0x4a04010a44100601ULL,
+  0x0010014901001021ULL,
+  0x0422411031300100ULL,
+  0x0824222110280000ULL,
+  0x8800020a0b340300ULL,
+  0x00a8000441109088ULL,
+  0x0404000861010208ULL,
+  0x0040112002042200ULL,
+  0x02141006480b00a0ULL,
+  0x2210108081004411ULL,
+  0x2010804070100803ULL,
+  0x7a0011010090ac31ULL,
+  0x0018005100880400ULL,
+  0x8010001081084805ULL,
+  0x400200021202020aULL,
+  0x04100342100a0221ULL,
+  0x0404408801010204ULL,
+  0x6360041408104012ULL
 };
 
   U64* initialiseAllMagics(MagicBB* bishops, MagicBB* rooks) {
@@ -289,18 +176,19 @@ const U64 bishop_magic_numbers[64] = {
     }
     U64* table = new U64[table_size];
     if (!table) return 0;
-    U64* iter = table;
-    for (int i = 0; i < 64 && iter < table + table_size_bishop; iter += (1ULL << magicBBits[i]), ++i) {
-      bishops[i] = MagicBB(i, bishop_magic_numbers[i], getPremask<BISHOP>(i), iter, magicBBits[i]);
+    for (int i = 0; i < 64; ++i) {
+      bishops[i] = MagicBB(i, bishop_magic_numbers[i], getPremask<BISHOP>(i), magicBBits[i]);
       if (bishops[i].initialise<BISHOP>()){
         delete[] table;
+        std::cout << "Bishop magic initialisation failed" << std::endl;
         return nullptr;
       }
     }
-    for (int i = 0; i < 64 && iter < table + table_size; iter += (1ULL << magicRBits[i]), ++i) {
-      rooks[i] = MagicBB(i, rook_magic_numbers[i], getPremask<ROOK>(i), iter, magicRBits[i]);
+    for (int i = 0; i < 64; ++i) {
+      rooks[i] = MagicBB(i, rook_magic_numbers[i], getPremask<ROOK>(i), magicRBits[i]);
       if (rooks[i].initialise<ROOK>()){
         delete[] table;
+        std::cout << "Rook magic initialisation failed" << std::endl;
         return nullptr;
       }
     }

@@ -21,5 +21,8 @@ void printbb(U64 bb) {
     for (int j = 0; j < 8; j++) std::cout << (char)(((bb >> (i*8+j)) & 1) + '0') << " ";
     std::cout << std::endl;
   }
+}
 
+void printSq(int p) {
+  std::cout << (char) ('a' + (p&7)) << (char) ('1'+((p>>3) & 7));
 }

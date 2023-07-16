@@ -1,16 +1,19 @@
 CC = g++
-FLAGS = -Wall -Werror
+FLAGS = -Wall -Werror -std=c++2a
 
-objects = src/main.o src/magicbb.o src/movegen.o src/position.o src/search.o src/utils.o
+srcdir = src
+build = build
+
+objects = main.o magicbb.o movegen.o position.o search.o utils.o
 
 
-main: $(objects)
-	$(CC) $(FLAGS) -o main $(objects)
+build/main: $(addprefix build/, $(objects))
+	$(CC) $(FLAGS) -o build/main $(addprefix build/, $(objects))
 
-%.o : %.cpp
+build/%.o : src/%.cpp
 	$(CC) -c $(FLAGS) $< -o $@
 
 .PHONY : clean
 clean :
-	rm *.o $(objects) \
-	rm main
+	rm *.o $(addprefix build/, $(objects)) \
+	rm build/main

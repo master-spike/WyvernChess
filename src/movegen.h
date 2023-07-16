@@ -25,16 +25,14 @@ private:
   template<enum PieceType PT, enum Color CT>
   void generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, int myking, U64 our_pieces,
                             U64 e_q, U64 e_r, U64 e_b, U64 e_n, U64 e_p, U64 pp_o, U64 pp_d);
+  void flushMoves();
+  std::vector<U16> categorized_moves[3];
+public:
   U64 knight_attack_table[64];
   U64 king_attack_table[64];
   MagicBB rook_magics[64];
   MagicBB bishop_magics[64];
   U64* magic_table;
-
-  void flushMoves();
-  std::vector<U16> categorized_moves[3];
-
-public:
   template<enum Color CT> U64 squareAttackedBy(int p, Position& pos, U64 custom_blockers);
   MoveGenerator();
   MoveGenerator(const MoveGenerator& in_mg) = delete;
@@ -54,15 +52,15 @@ U64 MoveGenerator::bbPseudoLegalMoves(int p, U64 postmask, U64 bb_blockers) {
     if constexpr (CT == COLOR_WHITE) {
       U64 pawn = 1ULL << p;
       U64 captures = ((pawn << 7 & ~FILE_H) | (pawn << 9 & ~FILE_A)) & bb_blockers;
-      U64 pushes = pawn << 8 & ~bb_blockers;
-      pushes |= pushes & ~bb_blockers & RANK_4;
+      U64 pushes = (pawn << 8) & ~bb_blockers;
+      pushes |= (pushes << 8) & RANK_4 & ~bb_blockers;
       return (captures | pushes) & postmask;
     }
     if constexpr (CT == COLOR_BLACK) {
       U64 pawn = 1ULL << p;
       U64 captures = ((pawn >> 9 & ~FILE_H) | (pawn >> 7 & ~FILE_A)) & bb_blockers;
-      U64 pushes = pawn >> 8 & ~bb_blockers;
-      pushes |= pushes & ~bb_blockers & RANK_5;
+      U64 pushes = (pawn >> 8) & ~bb_blockers;
+      pushes |= (pushes >> 8) & RANK_5 & ~bb_blockers;
       return (captures | pushes) & postmask;
     }
   }
@@ -157,7 +155,7 @@ void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, i
     for (;ps; ps &= ps-1) {
       int p = __builtin_ctzll(ps);
       U64 pinmask = makePinmask(p, pp_d, pp_o, blockers, myking, e_q | e_b, e_q | e_r);
-      U64 targets = bbPseudoLegalMoves<PT, CT>(p, checkmask & pinmask, ~our_pieces);
+      U64 targets = bbPseudoLegalMoves<PT, CT>(p, checkmask & pinmask, blockers);
       U64 t_best = targets & best_caps;
       U64 t_n_caps = targets & neutral_caps;
       U64 t_quiets = targets & ~best_caps & ~neutral_caps & ~our_pieces;

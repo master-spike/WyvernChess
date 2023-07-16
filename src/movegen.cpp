@@ -63,17 +63,24 @@ MoveGenerator::MoveGenerator()
     U64 filer = (filem << 1) & ~(FILE_A);
     U64 filel = (filem >> 1) & ~(FILE_H);
     U64 filerr = (filer << 1) & ~(FILE_A);
-    U64 filell =  (filer >> 1) & ~(FILE_H);
+    U64 filell =  (filel >> 1) & ~(FILE_H);
     U64 ranktt = (i / 8 < 6) ? ranks[i / 8 + 2] : 0;
     U64 rankt = (i / 8 < 7) ? ranks[i / 8 + 1] : 0;
     U64 rankb = (i / 8 > 0) ? ranks[i / 8 - 1] : 0;
     U64 rankbb = (i / 8 > 1) ? ranks[i / 8 - 2] : 0;
     knight_attack_table[i]  = (ranktt | rankbb) & (filer | filel);
     knight_attack_table[i] |= (filell | filerr) & (rankt | rankb);
+    /*
+    std::cout << "KNIGHT ATTACKS FROM " << (char) ('a'+(i % 8)) << (char) ('1'+(i/8)) << '\n';
+    printbb(knight_attack_table[i]);
+    std::cout << "KING ATTACKS FROM " << (char) ('a'+(i % 8)) << (char) ('1'+(i/8)) << '\n';
+    printbb(king_attack_table[i]);
+    */
   }
 }
 
 MoveGenerator::~MoveGenerator() {
+  std::cout << "mg destructor" << std::endl;
   delete[] magic_table;
 }
 

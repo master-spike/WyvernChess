@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "types.h"
+#include "utils.h"
 
 
 namespace Wyvern {
@@ -20,10 +21,12 @@ private:
   std::vector<uint16_t> move_history;
   std::vector<enum PieceType> capture_history;
   std::vector<U64> position_history;
+  std::vector<enum CastlingRights> cr_history;
   
 public:
   Position();
   ~Position() = default;
+  Position(const Position& pos);
   int makeMove(U16 move);
   int unmakeMove();
   void printFen() const;
@@ -36,6 +39,20 @@ public:
   enum Color getToMove() const;
   enum PieceType pieceAtSquare(U64 sq);
   U64 getEpSquare();
+  bool operator == (Position& pos) {
+    if (zobrist ^ pos.zobrist) return false;
+    if (piece_colors[0] ^ pos.piece_colors[0]) return false;
+    if (piece_colors[1] ^ pos.piece_colors[1]) return false;
+    for (int i = 0; i < 6; ++i) {
+      if (pieces[i] ^ pos.pieces[i]) return false;
+    }
+    if (ep_square ^ pos.ep_square) return false;
+    if (castling != pos.castling) return false;
+    if (tomove != pos.tomove) return false;
+    if (fifty_half_moves != pos.fifty_half_moves) return false;
+    if (full_moves != pos.full_moves) return false;
+    return true;
+  }
 };
 
 }

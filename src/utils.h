@@ -16,4 +16,6 @@ int popCount64(U64 v);
 
 void printbb(U64 bb);
 
+void printSq(int p);
+
 #endif
