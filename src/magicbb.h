@@ -29,6 +29,9 @@ static const int magicBBits[64] = {
   6, 5, 5, 5, 5, 5, 5, 6
 };
 
+template<enum PieceType PT>
+U64 getPremask(int p);
+
 class MagicBB {
   private:
     int square;
@@ -37,7 +40,7 @@ class MagicBB {
     U64* table;
     int bits;
   public:
-    MagicBB() : square(0), magicnum(0), mask(0), table(nullptr), bits(0){};
+    MagicBB() = default;
     MagicBB(int sq, U64 mg, U64 ms, U64* tb, int b);
     U64 compute(U64 blockers);
     
@@ -45,8 +48,26 @@ class MagicBB {
     int initialise(); // returns 1 on failure
   };
 
-  template<enum PieceType PT>
-  U64 findMagicNum(int p);
+template<enum PieceType PT>
+U64 findMagicNum(int p) {
+  if constexpr(PT != ROOK && PT != BISHOP) return 0;
+  int bits = (PT == BISHOP) ? magicBBits[p] : magicRBits[p];
+  U64 mask = getPremask<PT>(p);
+  U64* temp_table = (U64*) malloc(sizeof(U64) *(size_t) (1ULL << bits));
+  for (U64 k = 0; k < MAGIC_MAX_TRIALS; ++k) {
+    U64 magic = rand64() & rand64() & rand64() ;
+    if (popCount64((magic*mask) & 0xFF00000000000000ULL) < 6) continue;
+    MagicBB mbb(p , magic, mask, temp_table, bits);
+    if (!mbb.initialise<PT>()) {
+      free(temp_table);
+      //std::cout << "magic number " << p << " for " << ((PT == ROOK) ? "  rook" : "bishop") << " found in " << k+1 << " tries" << "\n";
+      return magic;
+    }
+  }
+  std::cout << "Failed to find magic number " << p << " for " << ((PT == ROOK) ? "  rook" : "bishop") << "\n";
+  free(temp_table);
+  return 0;
+}
 
   template<enum PieceType PT>
   U64 generateAttacks(int p, U64 blockers);

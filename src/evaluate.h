@@ -17,7 +17,7 @@ constexpr int pvals[5] = {pval_pawn,pval_knight,pval_bishop,pval_rook,pval_queen
 
 
 // evaluates position for player to move
-int evalMaterialOnly(const Position& pos) {
+int evalMaterialOnly(Position& pos) {
   int player = pos.getToMove();
   int opponent = pos.getToMove() ^ 1;
   U64* pcols = pos.getPieceColors();

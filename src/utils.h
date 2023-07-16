@@ -4,27 +4,16 @@
 #include "types.h"
 #include <ctime>
 #include <cstdlib>
+#include <iostream>
 
 #define MAX_INT(x,y) (x > y) ? x : y;
 
-U64 rand64() {
-  U64 u0 = std::rand() & 0xFFFFULL;
-  U64 u1 = std::rand() & 0xFFFFULL;
-  U64 u2 = std::rand() & 0xFFFFULL;
-  U64 u3 = std::rand() & 0xFFFFULL;
-  return u0 + (u1 << 16) + (u2 << 32) + (u3 << 48);
-}
+U64 rand64();
 
-void seedRand(U32 seed) {
-  std::srand(seed);
-}
+void seedRand();
 
-void seedRand() {
-    std::srand(std::time(nullptr));
-}
+int popCount64(U64 v);
 
-inline int popCount64(U64 v) {
-    return __builtin_popcountll(v);
-}
+void printbb(U64 bb);
 
 #endif

@@ -1,9 +1,9 @@
 #ifndef H_GUARD_POSITION
 #define H_GUARD_POSITION
 
-#include "types.h"
-#include "movegen.h"
 #include <vector>
+#include "types.h"
+
 
 namespace Wyvern {
 
@@ -17,23 +17,25 @@ private:
   int fifty_half_moves;
   int full_moves;
   U64 zobrist;
-  U64 zobrist2;
   std::vector<uint16_t> move_history;
   std::vector<enum PieceType> capture_history;
   std::vector<U64> position_history;
+  
 public:
   Position();
+  ~Position() = default;
   int makeMove(U16 move);
   int unmakeMove();
   void printFen() const;
   void printPretty() const;
   int getHMC() const;
   int getFMC() const;
-  enum CastlingRights getCR();
-  U64* getPieceColors() const;
-  U64* getPieces() const;
+  enum CastlingRights getCR() const;
+  U64* getPieceColors();
+  U64* getPieces();
   enum Color getToMove() const;
-  enum PieceType pieceAtSquare(int sq);
+  enum PieceType pieceAtSquare(U64 sq);
+  U64 getEpSquare();
 };
 
 }
