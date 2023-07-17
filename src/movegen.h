@@ -208,7 +208,7 @@ int MoveGenerator::generateMoves(Position& pos) {
   }
   U64 blockers = piece_colors[0] | piece_colors[1];
   if (__builtin_popcountll(pieces[KING-1] & piece_colors[CT]) != 1) {
-    //std::cout << "BAD KINGS" << std::endl;
+    std::cout << "BAD KINGS" << std::endl;
     return 1;
   }
   int myking = __builtin_ctzll(pieces[KING-1] & piece_colors[CT]); 

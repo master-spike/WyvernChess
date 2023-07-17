@@ -30,9 +30,12 @@ int Search::negamax(Position& pos, int depth, int alpha, int beta) {
 }
 
 
-int Search::perft(Position& pos, int depth, int max_depth) {
+int Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles) {
   Position ref_pos(pos);
+  U64* pcols = pos.getPieceColors();
+  U64* pcs = pos.getPieces();
   enum Color ct = pos.getToMove();
+  int king_pos = __builtin_ctzll(pcs[KING-1] & pcols[ct]);
   if (depth == 0) return 1;
   int sum = 0;
   if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos);
@@ -47,10 +50,16 @@ int Search::perft(Position& pos, int depth, int max_depth) {
       std::cout << " - ";
     }
     */
+    if (move & YES_CAPTURE) ++(*n_capts);
+    if ((move & MOVE_SPECIAL) == ENPASSANT) ++(*n_enpass);
+    if ((move & MOVE_SPECIAL) == PROMO) ++(*n_promo);
+    if ((move & MOVE_SPECIAL) == CASTLES) ++(*n_castles);
 
-    
+
+
+
     pos.makeMove(move);
-    sum += perft(pos, depth-1, max_depth);
+    sum += perft(pos, depth-1, max_depth, n_capts, n_enpass, n_promo, n_castles);
     pos.unmakeMove();
     if (!(ref_pos == pos)){
       std::cout << "make unmake move fucked up:" << std::endl;
@@ -60,6 +69,23 @@ int Search::perft(Position& pos, int depth, int max_depth) {
       std::cout << " " << std::hex << move << '\n' << std::dec;
       pos.printPretty();
       break;
+    }
+
+    
+    if (__builtin_popcountll(pcs[KING-1] & pcols[ct]) != 1) {
+      printSq(move & 63);
+      std::cout << ':';
+      printSq((move >> 6) & 63);
+      std::cout << " " << std::hex << move << '\n' << std::dec;
+      pos.printPretty();
+      ref_pos.printPretty();
+      U64 kattack = (ct) ? movegen.squareAttackedBy<COLOR_WHITE>(king_pos, ref_pos, 0):
+                           movegen.squareAttackedBy<COLOR_BLACK>(king_pos, ref_pos, 0);
+      printbb(kattack);
+      U64 input;
+      std::cin >> std::hex >> input;
+      std::cout << input << std::endl;
+      return 0;
     }
   }
   if (sum > 0) return sum;

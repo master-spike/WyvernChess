@@ -16,11 +16,18 @@ int Position::makeMove(U32 move) {
   int pt = ((move >> 20) & 3) - 1;
   cr_history.emplace_back(castling);
   ep_square = 0;
+  if (special == ENPASSANT) {
+    int ep_file = files[tsq & 7];
+    U64 ep_tgt = (ibb & RANK_5) ? ep_file & RANK_5 : ep_file & RANK_4; 
+    pieces[PAWN-1] ^= ibb ^ tbb ^ ep_tgt;
+    piece_colors[tomove] ^= ibb ^ tbb;
+    piece_colors[tomove^1] ^= ep_tgt;
+  }
   if (special == NORMAL) {
     piece_colors[tomove] ^= ibb ^ tbb;
     pieces[pt] ^= ibb ^ tbb;
-    if (pt == (PAWN-1) && (ibb >> 16 == tbb || tbb >> 16 == ibb))
-      ep_square = ((ibb >> 8) & (tbb << 8)) | ((ibb << 8) & (tbb >> 8));
+    if (pt == (PAWN-1) && ((ibb >> 16) == tbb || (tbb >> 16) == ibb))
+      ep_square = 1ULL << ((isq + tsq)/2);
     if (pt == ROOK-1) {
       if (ibb & FILE_A & RANK_1) castling = (enum CastlingRights) (castling & ~CR_WQ);
       if (ibb & FILE_H & RANK_1) castling = (enum CastlingRights) (castling & ~CR_WK);
@@ -42,11 +49,6 @@ int Position::makeMove(U32 move) {
     piece_colors[tomove] ^= rook_isq ^ rook_tsq ^ ibb ^ tbb;
     castling = (tomove == COLOR_WHITE) ? (enum CastlingRights) (castling & ~CR_WHITE)
                                        :(enum CastlingRights) (castling & ~CR_BLACK);
-  }
-  if (special == ENPASSANT) {
-    pieces[PAWN-1] ^= ibb ^ tbb ^ ((RANK_4 | RANK_5) & (ep_square << 8 | ep_square >> 8));
-    piece_colors[tomove] ^= ibb ^ tbb;
-    piece_colors[tomove^1] ^= (ep_square << 8 | ep_square >> 8) & (RANK_4 | RANK_5);
   }
   if (is_capture) {
     piece_colors[tomove^1] ^= tbb;
@@ -94,17 +96,20 @@ int Position::unmakeMove() {
   }
   if (special == ENPASSANT) {
     ep_square = tbb;
-    pieces[PAWN-1] ^= ibb ^ tbb ^ ((RANK_4 | RANK_5) & (ep_square << 8 | ep_square >> 8));
+    int ep_file = files[tsq & 7];
+    U64 ep_tgt = (ibb & RANK_5) ? ep_file & RANK_5 : ep_file & RANK_4; 
+    pieces[PAWN-1] ^= ibb ^ tbb ^ ep_tgt;
     piece_colors[tomove] ^= ibb ^ tbb;
-    piece_colors[tomove^1] ^= (ep_square << 8 | ep_square >> 8) & (RANK_4 | RANK_5);
+    piece_colors[tomove^1] ^= ep_tgt;
   }
   else if (move_history.size() > 0) {
     // RECOVER PREVIOUS EN PASSANT SQUARE
     U32 prev_move = move_history.back();
     int pm_t = 63 & (prev_move >> 6);
     int pm_i = prev_move & 63;
-    if ((pieces[PAWN-1] & (1ULL << pm_t) && (pm_t - pm_i == 16 || pm_i - pm_t == 16)))
-      ep_square = 1ULL << ((pm_t + pm_i) >> 2);
+    if ((prev_move & MOVE_ALL_PIECES) == MOVE_PAWN) {
+      ep_square = (1ULL << ((pm_t + pm_i)/2)) & files[pm_i & 7];
+    }
   }
   castling = cr_history.back();
   cr_history.pop_back();

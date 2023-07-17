@@ -15,7 +15,7 @@ namespace Wyvern {
   enum Color {COLOR_WHITE = 0, COLOR_BLACK = 1, COL_UNDEF = 2};
   enum PieceType {PIECE_NONE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, INVALID = 8};
   enum Move : U32 {MOVE_NONE = 0, MOVE_NULL = 65};
-  enum MoveType : U32 {NORMAL = 0, PROMO = 1 << 14, ENPASSANT = 2 << 14, CASTLES = 3 << 14};
+  enum MoveType : U32 {NORMAL = 0, PROMO = 1 << 14, ENPASSANT = 2 << 14, CASTLES = 3 << 14, MOVE_SPECIAL = 3 << 14};
   enum MoveCapture : U32 {
     NO_CAPTURE = 0,
     YES_CAPTURE = 1<<16,
@@ -32,7 +32,8 @@ namespace Wyvern {
     MOVE_BISHOP = BISHOP << 20,
     MOVE_ROOK = ROOK << 20,
     MOVE_QUEEN = QUEEN << 20,
-    MOVE_KING = KING << 20
+    MOVE_KING = KING << 20,
+    MOVE_ALL_PIECES = 7 << 20
   };
   enum CastlingRights : U16 {
     CR_NONE = 0, CR_WK = 1, CR_WQ = 2, CR_BK = 4, CR_BQ = 8,

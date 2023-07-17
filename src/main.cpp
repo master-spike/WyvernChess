@@ -18,11 +18,20 @@ int main() {
     }
     */
     
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 8; i++) {
         Wyvern::Search my_search;
         Wyvern::Position position;
-        int x = my_search.perft(position, i, i);
-        std::cout << "perft " << i << ": " << x << std::endl;
+        int n_capts = 0;
+        int n_enpass = 0;
+        int n_castles = 0;
+        int n_promo = 0;
+        int x = my_search.perft(position, i, i, &n_capts, &n_enpass, &n_promo, &n_castles);
+        std::cout << "perft " << i << ": " << x
+                  << ", captures=" << n_capts
+                  << ", en-passant=" << n_enpass
+                  << ", castles=" << n_castles
+                  << ", promoitons=" << n_promo
+                  << std::endl;
     }
     
 
