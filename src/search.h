@@ -15,7 +15,7 @@ public:
   template<enum Color CT>
   int negamax(Position& pos, int depth, int alpha, int beta);
   ~Search() = default;
-  int perft(Position &pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles);
+  int perft(Position &pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks);
 };
 }
 

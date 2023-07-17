@@ -18,10 +18,10 @@ private:
   int fifty_half_moves;
   int full_moves;
   U64 zobrist;
-  std::vector<U32> move_history;
   std::vector<U64> position_history;
   std::vector<enum CastlingRights> cr_history;
 public:
+  std::vector<U32> move_history;
   Position();
   ~Position() = default;
   Position(const Position& pos);
