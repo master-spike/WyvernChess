@@ -13,12 +13,28 @@ typedef uint8_t  U8;
 namespace Wyvern {
 
   enum Color {COLOR_WHITE = 0, COLOR_BLACK = 1, COL_UNDEF = 2};
-  enum Move : int {MOVE_NONE = 0, MOVE_NULL = 65};
-  enum MoveType {NORMAL = 0, PROMO = 1 << 14, ENPASSANT = 2 << 14, CASTLES = 3 << 14};
-  
   enum PieceType {PIECE_NONE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, INVALID = 8};
-  
-  enum CastlingRights {
+  enum Move : U32 {MOVE_NONE = 0, MOVE_NULL = 65};
+  enum MoveType : U32 {NORMAL = 0, PROMO = 1 << 14, ENPASSANT = 2 << 14, CASTLES = 3 << 14};
+  enum MoveCapture : U32 {
+    NO_CAPTURE = 0,
+    YES_CAPTURE = 1<<16,
+    CAPTURE_PAWN = (PAWN << 17) | YES_CAPTURE,
+    CAPTURE_KNIGHT = (KNIGHT << 17) | YES_CAPTURE,
+    CAPTURE_BISHOP = (BISHOP << 17) | YES_CAPTURE,
+    CAPTURE_ROOK = (ROOK << 17) | YES_CAPTURE,
+    CAPTURE_QUEEN = (QUEEN << 17) | YES_CAPTURE,
+    CAPTURE_KING = (KING << 17) | YES_CAPTURE
+  };
+  enum MovePiece  : U32 {
+    MOVE_PAWN = PAWN << 20,
+    MOVE_KNIGHT = KNIGHT << 20,
+    MOVE_BISHOP = BISHOP << 20,
+    MOVE_ROOK = ROOK << 20,
+    MOVE_QUEEN = QUEEN << 20,
+    MOVE_KING = KING << 20
+  };
+  enum CastlingRights : U16 {
     CR_NONE = 0, CR_WK = 1, CR_WQ = 2, CR_BK = 4, CR_BQ = 8,
     
     CR_KING = CR_WK | CR_BK,
@@ -28,11 +44,6 @@ namespace Wyvern {
     CR_ANY = CR_WHITE | CR_BLACK,
     
     CR_UNDEF = 16 
-  };
-
-  enum MoveFilters : U32 {
-    ALL_MOVES = UINT32_MAX,
-    FMOVE_QUIETS = 1
   };
 
   enum File : U64 {

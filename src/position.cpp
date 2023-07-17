@@ -4,22 +4,18 @@
 namespace Wyvern {
 
 
-int Position::makeMove(U16 move) {
+int Position::makeMove(U32 move) {
   int isq = move & 0x3F;
   int tsq = (move >> 6) & 0x3F;
-  int promo_piece = ((move >> 12) & 3) + 1; 
+  int promo_piece = ((move >> 12) & 3) + 1;
+  int capture_piece = ((move>>17) & 3) - 1;
+  U32 is_capture = YES_CAPTURE & move;
   int special = move & 0xC000;
   U64 ibb = 1ULL << isq;
   U64 tbb = 1ULL << tsq;
-  int pt = 0;
-  while (pt < 6 && !(pieces[pt] & ibb)) pt++;
+  int pt = ((move >> 20) & 3) - 1;
   cr_history.emplace_back(castling);
-  if (pt == 6 || !(piece_colors[tomove] & ibb)) {
-    return 1;
-  }
   ep_square = 0;
-  int ptc = 0;
-  while (ptc < 6 && !(pieces[ptc] & tbb)) ptc++;
   if (special == NORMAL) {
     piece_colors[tomove] ^= ibb ^ tbb;
     pieces[pt] ^= ibb ^ tbb;
@@ -52,20 +48,19 @@ int Position::makeMove(U16 move) {
     piece_colors[tomove] ^= ibb ^ tbb;
     piece_colors[tomove^1] ^= (ep_square << 8 | ep_square >> 8) & (RANK_4 | RANK_5);
   }
-  if (ptc < 6) {
+  if (is_capture) {
     piece_colors[tomove^1] ^= tbb;
-    pieces[ptc] ^= tbb;
+    pieces[capture_piece] ^= tbb;
   }
   tomove = (enum Color) (tomove ^ 1);
   move_history.emplace_back(move);
-  capture_history.emplace_back((enum PieceType) ((ptc + 1)%7));
   position_history.emplace_back(zobrist);
   return 0;
 }
 
 int Position::unmakeMove() {
-  U16 move = move_history.back();
-  enum PieceType captured_piece = capture_history.back();
+  U32 move = move_history.back();
+  enum PieceType captured_piece = (enum PieceType) ((move >> 17) & 3);
   zobrist = position_history.back();
   tomove = (enum Color) (tomove ^ 1);
   int isq = move & 0x3F;
@@ -74,14 +69,9 @@ int Position::unmakeMove() {
   U64 tbb = 1ULL << tsq;
   int promo_piece = ((move >> 12) & 3) + 1; 
   int special = move & 0xC000;
-  int pt = 0;
+  int pt = ((move >> 20) & 3) - 1;
   ep_square = 0;
-  while (pt < 6 && !(pieces[pt] & tbb)) pt++;
-  if (pt == 6 || !(piece_colors[tomove] & tbb)) {
-    tomove = (enum Color) (tomove ^ 1);
-    return 1;
-  }
-  if (captured_piece != PIECE_NONE) {
+  if (YES_CAPTURE & move) {
     piece_colors[tomove^1] ^= tbb;
     pieces[captured_piece-1] ^= tbb;
   }
@@ -110,7 +100,7 @@ int Position::unmakeMove() {
   }
   else if (move_history.size() > 0) {
     // RECOVER PREVIOUS EN PASSANT SQUARE
-    U16 prev_move = move_history.back();
+    U32 prev_move = move_history.back();
     int pm_t = 63 & (prev_move >> 6);
     int pm_i = prev_move & 63;
     if ((pieces[PAWN-1] & (1ULL << pm_t) && (pm_t - pm_i == 16 || pm_i - pm_t == 16)))
@@ -119,7 +109,6 @@ int Position::unmakeMove() {
   castling = cr_history.back();
   cr_history.pop_back();
   move_history.pop_back();
-  capture_history.pop_back();
   position_history.pop_back();
   return 0;
 }
@@ -149,10 +138,28 @@ zobrist(0)
   if (invalid) std::cout << "DEFAULT POSITION CONSTRUCTOR BROKEN" << std::endl;
 }
 
-void Position::printFen() const {
+void Position::printFen() {
   
 }
-void Position::printPretty() const {
+
+void Position::printPretty() {
+  const char piece_chars[7] = {'?','P','N','B','R','Q','K'};
+  std::cout << "+---+---+---+---+---+---+---+---+" << std::endl;
+  for (int i = 7; i >= 0; --i) {
+    std::cout << '|';
+    for (int j = 0; j < 8; j++) {
+      int p = i*8+j;
+      char ws = ' ';
+      if ((i+j)&1) ws = '#';
+      char piece = ws;
+      if (piece_colors[COLOR_WHITE] & (1ULL << p))
+        piece = piece_chars[pieceAtSquare(1ULL << p)];
+      if (piece_colors[COLOR_BLACK] & (1ULL << p))
+        piece = piece_chars[pieceAtSquare(1ULL << p)] + ('a' - 'A');
+      std::cout << ws << piece << ws <<'|';
+    }
+    std::cout << std::endl << "+---+---+---+---+---+---+---+---+" << std::endl;
+  }
 
 }
 int Position::getHMC() const {
@@ -194,8 +201,7 @@ Position::Position(const Position& pos) {
   fifty_half_moves = pos.fifty_half_moves;
   full_moves = pos.full_moves;
   zobrist = pos.zobrist;
-  move_history = std::vector<U16>(pos.move_history);
-  capture_history = std::vector<enum PieceType>(pos.capture_history);
+  move_history = std::vector<U32>(pos.move_history);
   position_history = std::vector<U64>(pos.position_history);
   cr_history = std::vector<enum CastlingRights>(pos.cr_history);
 }

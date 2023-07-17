@@ -27,10 +27,10 @@ U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king
   return pinmask;
 }
 
-U16 MoveGenerator::popMove() {
+U32 MoveGenerator::popMove() {
   for (int i = 0; i < 3; ++i) {
     if (!categorized_moves[i].empty()) {
-      U16 move = categorized_moves[i].back();
+      U32 move = categorized_moves[i].back();
       categorized_moves[i].pop_back();
       if (move != MOVE_NONE) return move;
     }

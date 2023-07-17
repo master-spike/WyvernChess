@@ -18,7 +18,7 @@ int main() {
     }
     */
     
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 6; i++) {
         Wyvern::Search my_search;
         Wyvern::Position position;
         int x = my_search.perft(position, i, i);

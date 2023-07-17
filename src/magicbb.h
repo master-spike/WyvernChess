@@ -9,10 +9,72 @@
 namespace Wyvern 
 {
 
-
-// returns a pointer to the allocated memory segment for all the lookup tables for deletion
-// by anything which uses it. This is probably not good practice.
-
+template<enum PieceType PT>
+U64 generateAttacks(int p, U64 blockers) {
+  if constexpr(PT == ROOK) {
+    int q = p+8;
+    U64 out = 0;
+    // do up:
+    while(q < 64) {
+      out |= 1ULL << q;
+      if (blockers & (1ULL << q)) break;
+      q += 8;
+    }
+    q = p-8;
+    while(q >= 0) {
+      out |= 1ULL << q;
+      if (blockers & (1ULL << q)) break;
+      q -= 8;
+    }
+    q = p+1;
+    // do right
+    while((1ULL << q) & ~(FILE_A)) {
+      out |= 1ULL << q;
+      if (blockers & (1ULL << q)) break;
+      q++;
+    }
+    q = p-1;
+    while((1ULL << q) & ~(FILE_H)) {
+      out |= 1ULL << q;
+      if (blockers & (1ULL << q)) break;
+      q -= 1;
+    }
+    return out;
+  }
+  if constexpr(PT == BISHOP) {
+    U64 sq = 1ULL << p;
+    U64 out = 0;
+    while (sq) {
+      sq = sq << 9;
+      sq &= ~((U64) FILE_A | (U64) RANK_1);
+      out |= sq;
+      sq &= ~blockers;
+    }
+    sq = 1ULL << p;
+    while (sq) {
+      sq = sq >> 7;
+      sq &= ~((U64) FILE_A | (U64) RANK_8);
+      out |= sq;
+      sq &= ~blockers;
+    }
+    sq = 1ULL << p;
+    while(sq) {
+      sq = sq << 7;
+      sq &= ~((U64) FILE_H | (U64) RANK_1);
+      out |= sq;
+      sq &= ~blockers;
+    }
+    sq = 1ULL << p;
+    while(sq) {
+      sq = sq >> 9;
+      sq &= ~((U64) FILE_H | (U64) RANK_8);
+      out |= sq;
+      sq &= ~blockers;
+    }
+    return out;
+  }
+  return 0;
+}
 
 class MagicBB {
 private:
@@ -123,73 +185,6 @@ U64 findMagicNum(int p) {
 
 template U64 findMagicNum<ROOK>(int p);
 template U64 findMagicNum<BISHOP>(int p);
-
-template<enum PieceType PT>
-U64 generateAttacks(int p, U64 blockers) {
-  if constexpr(PT == ROOK) {
-    int q = p+8;
-    U64 out = 0;
-    // do up:
-    while(q < 64) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q += 8;
-    }
-    q = p-8;
-    while(q >= 0) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q -= 8;
-    }
-    q = p+1;
-    // do right
-    while((1ULL << q) & ~(FILE_A)) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q++;
-    }
-    q = p-1;
-    while((1ULL << q) & ~(FILE_H)) {
-      out |= 1ULL << q;
-      if (blockers & (1ULL << q)) break;
-      q -= 1;
-    }
-    return out;
-  }
-  if constexpr(PT == BISHOP) {
-    U64 sq = 1ULL << p;
-    U64 out = 0;
-    while (sq) {
-      sq = sq << 9;
-      sq &= ~(FILE_A | RANK_1);
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    while (sq) {
-      sq = sq >> 7;
-      sq &= ~(FILE_A | RANK_8);
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    while(sq) {
-      sq = sq << 7;
-      sq &= ~(FILE_H | RANK_1);
-      out |= sq;
-      sq &= ~blockers;
-    }
-    sq = 1ULL << p;
-    while(sq) {
-      sq = sq >> 9;
-      sq &= ~(FILE_H | RANK_8);
-      out |= sq;
-      sq &= ~blockers;
-    }
-    return out;
-  }
-  return 0;
-}
   
 
 
