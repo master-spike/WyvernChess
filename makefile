@@ -1,5 +1,5 @@
 CC = g++
-FLAGS = -Wall -Werror -std=c++2a
+FLAGS = -Wall -Werror -std=c++2a -O3
 
 srcdir = src
 build = build
@@ -15,5 +15,6 @@ build/%.o : src/%.cpp
 
 .PHONY : clean
 clean :
-	rm *.o $(addprefix build/, $(objects)) \
-	rm build/main
+	rm $(addprefix build/, $(objects)) \
+	build/main \
+	perf.data

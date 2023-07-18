@@ -28,7 +28,7 @@ U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king
 }
 
 U32 MoveGenerator::popMove() {
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 1; ++i) {
     if (!categorized_moves[i].empty()) {
       U32 move = categorized_moves[i].back();
       categorized_moves[i].pop_back();
@@ -40,8 +40,6 @@ U32 MoveGenerator::popMove() {
 
 void MoveGenerator::flushMoves() {
   categorized_moves[0].clear();
-  categorized_moves[1].clear();
-  categorized_moves[2].clear();
 }
 
 MoveGenerator::MoveGenerator()

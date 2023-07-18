@@ -23,6 +23,7 @@ private:
 public:
   std::vector<U32> move_history;
   Position();
+  Position(char* fen);
   ~Position() = default;
   Position(const Position& pos);
   int makeMove(U32 move);
@@ -35,6 +36,7 @@ public:
   U64* getPieceColors();
   U64* getPieces();
   enum Color getToMove() const;
+  int checkValidity();
   enum PieceType pieceAtSquare(U64 sq);
   U64 getEpSquare();
   bool operator == (Position& pos) {
