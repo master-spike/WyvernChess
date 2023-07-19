@@ -145,6 +145,20 @@ void Search::sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals)
   }
 }
 
+bool Search::checkThreeReps(Position& pos) {
+  auto begin = pos.positionHistoryIteratorBegin();
+  auto end = pos.positionHistoryIteratorEnd();
+  int hmc = pos.getHMC();
+  int count = 0;
+  U64 z = pos.getZobrist();
+  for (auto iter = begin; iter != end && (begin - iter) < hmc; ++iter) {
+    if (iter[0] == z) count++;
+    if (count == 2) return true;
+  }
+  return false;
+}
+
+
 BoundedEval Search::bestEvalInVector(std::vector<BoundedEval>& b_evals) {
   BoundedEval best = BoundedEval(BOUND_EXACT, -INT32_MAX);
   for (BoundedEval b : b_evals) {

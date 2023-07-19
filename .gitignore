@@ -2,3 +2,6 @@
 *.o
 main
 perf.data
+build/
+utilities/
+objects/

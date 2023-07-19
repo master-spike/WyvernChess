@@ -19,6 +19,7 @@ private:
   time_t init_time;
   time_t time_limit;
   BoundedEval bestEvalInVector(std::vector<BoundedEval>& b_evals);
+  bool checkThreeReps(Position& pos);
 public:
   Search() = default;
   U32 bestmove(Position pos, double t_limit);
@@ -45,14 +46,15 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta) {
     m = movegen.popMove(0);
   }
   if (moves.size() == 0) {
+    movegen.generateMoves<CT>(pos, true); // generate more moves to check for mate/stalemate
     if (checks) return BoundedEval(BOUND_EXACT, -INT32_MAX);
-    movegen.generateMoves<CT>(pos, true); // generate more moves to check for 
     if (movegen.popMove(0) == MOVE_NULL) return BoundedEval(BOUND_EXACT, 0); // stalemate
-
+    if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
     // not stalemate, no captures, return stand pat
     return BoundedEval(BOUND_EXACT, stand_pat);
   }
-
+  if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
+  if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
   alpha = (alpha > stand_pat) ? alpha : stand_pat; //baseline score
   enum Bound bound = BOUND_EXACT;
   // now we do captures.
@@ -91,6 +93,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
     return BoundedEval(BOUND_EXACT, 0);
   }
   if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
+  if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
   if (depth == 0) {
     return BoundedEval(BOUND_EXACT,evaluator.evalPositional(pos));
   }

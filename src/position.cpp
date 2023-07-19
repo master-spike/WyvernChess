@@ -4,6 +4,26 @@
 namespace Wyvern {
 
 
+void Position::zobristHash() {
+    U64 value = 0;
+    U64 blacks = piece_colors[1];
+    U64 whites = piece_colors[0];
+    for (int i = 0; i < 6; i++) {
+        U64 white_ps = pieces[i] & whites;
+        U64 black_ps = pieces[i] & blacks;
+        for (;white_ps; white_ps &= white_ps-1) {
+            value ^= zobristNum(i, 0, __builtin_ctzll(white_ps));
+        }
+        for (;black_ps; black_ps &= black_ps-1) {
+            value ^= zobristNum(i, 0, __builtin_ctzll(black_ps));
+        }
+    }
+    value ^= zobristEP(ep_square);
+    value ^= zobristCR(castling);
+    if (tomove == COLOR_BLACK) value ^= zobristToMove();
+    zobrist = value;
+}
+
 int Position::makeMove(U32 move) {
   int isq = move & 0x3F;
   int tsq = (move >> 6) & 0x3F;
@@ -16,17 +36,26 @@ int Position::makeMove(U32 move) {
   int pt = ((move >> 20) & 7) - 1;
   cr_history.emplace_back(castling);
   hmc_history.emplace_back(fifty_half_moves);
+  position_history.emplace_back(zobrist);
+  // zobrist out old piece position
+  zobrist ^= zobristNum(pt, tomove, isq);
+  // hash-out old zobrist ep before setting to ep_square = 0
+  zobrist ^= zobristEP(ep_square);
   ep_square = 0;
   fifty_half_moves++;
   if (pt == PAWN - 1) fifty_half_moves = 0;
   if (special == ENPASSANT) {
-    U64 ep_tgt = (tomove) ? tbb << 8 : tbb >> 8; 
+    U64 ep_tgt = (tomove) ? tbb << 8 : tbb >> 8;
+    // zobrist in our target, and out enemy pawn
+    zobrist ^= zobristNum(PAWN-1, tomove^1, __builtin_ctzll(ep_tgt));
+    zobrist ^= zobristNum(PAWN-1, tomove, tsq);
     pieces[PAWN-1] ^= ibb ^ tbb ^ ep_tgt;
     piece_colors[tomove] ^= ibb ^ tbb;
     piece_colors[tomove^1] ^= ep_tgt;
   }
   if (special == NORMAL) {
     piece_colors[tomove] ^= ibb ^ tbb;
+    zobrist ^= zobristNum(pt, tomove, tsq); // zobrist in our target
     pieces[pt] ^= ibb ^ tbb;
     if (pt == (PAWN-1) && ((ibb >> 16) == tbb || (tbb >> 16) == ibb))
       ep_square = 1ULL << ((isq + tsq)/2);
@@ -45,11 +74,15 @@ int Position::makeMove(U32 move) {
     piece_colors[tomove] ^= ibb ^ tbb;
     pieces[promo_piece] ^= tbb;
     pieces[PAWN-1] ^= ibb;
+    zobrist ^= zobristNum(promo_piece, tomove, tsq);
   }
   if (special == CASTLES) {
+    zobrist ^= zobristNum(KING-1, tomove, tsq); // zobrist king target
     U64 castle_rank = (tomove == COLOR_WHITE) ? RANK_1 : RANK_8;
     U64 rook_isq = (ibb > tbb) ? castle_rank & FILE_A : castle_rank & FILE_H;
     U64 rook_tsq = (ibb > tbb) ? castle_rank & FILE_D : castle_rank & FILE_F;
+    // zobrist rook move
+    zobrist ^= zobristNum(ROOK-1,tomove, rook_isq) ^ zobristNum(ROOK-1,tomove, rook_tsq);
     pieces[ROOK-1] ^= rook_isq ^ rook_tsq;
     pieces[KING-1] ^= ibb ^ tbb;
     piece_colors[tomove] ^= rook_isq ^ rook_tsq ^ ibb ^ tbb;
@@ -58,6 +91,8 @@ int Position::makeMove(U32 move) {
   }
   if (is_capture) {
     fifty_half_moves = 0;
+    // zobrist out enemy piece
+    zobrist ^= zobristNum(capture_piece, tomove^1, tsq);
     piece_colors[tomove^1] ^= tbb;
     pieces[capture_piece] ^= tbb;
       if (tbb & FILE_A & RANK_1) castling = (enum CastlingRights) (castling & ~CR_WQ);
@@ -65,10 +100,14 @@ int Position::makeMove(U32 move) {
       if (tbb & FILE_A & RANK_8) castling = (enum CastlingRights) (castling & ~CR_BQ);
       if (tbb & FILE_H & RANK_8) castling = (enum CastlingRights) (castling & ~CR_BK);
   }
+  // update zobrist cr and new ep square
+  zobrist ^= zobristEP(ep_square);
+  zobrist ^= zobristCR((enum CastlingRights) (castling ^ cr_history.back()));
+  // new zobrist
+  zobrist ^= zobristToMove();
   full_moves += tomove;
   tomove = (enum Color) (tomove ^ 1);
   move_history.emplace_back(move);
-  position_history.emplace_back(zobrist);
   return 0;
 }
 
@@ -138,23 +177,38 @@ enum Color Position::getToMove() const {
   return tomove;
 }
 
+std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorBegin()
+{
+  return position_history.crbegin();
+}
+
+std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorEnd()
+{
+  return position_history.crend();
+}
+
+U64 Position::getZobrist() const {
+  return zobrist;
+}
+
 Position::Position()
-: piece_colors{0xFFFFULL, 0xFFFF000000000000ULL},
-ep_square(0),
-pieces{0x00FF00000000FF00ULL, 0x4200000000000042ULL,
-       0x2400000000000024ULL, 0x8100000000000081ULL,
-       0x0800000000000008ULL, 0x1000000000000010ULL},
-castling(CR_ANY),
-tomove(COLOR_WHITE),
-fifty_half_moves(0),
-full_moves(0),
-zobrist(0)
+    : piece_colors{0xFFFFULL, 0xFFFF000000000000ULL},
+      ep_square(0),
+      pieces{0x00FF00000000FF00ULL, 0x4200000000000042ULL,
+             0x2400000000000024ULL, 0x8100000000000081ULL,
+             0x0800000000000008ULL, 0x1000000000000010ULL},
+      castling(CR_ANY),
+      tomove(COLOR_WHITE),
+      fifty_half_moves(0),
+      full_moves(0),
+      zobrist(0)
 {
   U64 invalid = piece_colors[0] & piece_colors[1];
   invalid |= piece_colors[0] ^ piece_colors[1]
            ^ pieces[0] ^ pieces[1] ^ pieces[2]
            ^ pieces[3] ^ pieces[4] ^ pieces[5];
   if (invalid) std::cout << "DEFAULT POSITION CONSTRUCTOR BROKEN" << std::endl;
+  zobristHash();
 }
 
 void Position::printFen() {
@@ -315,7 +369,6 @@ Position::Position(char* fen) {
   tomove = COLOR_WHITE;
   fifty_half_moves = 0;
   full_moves = 0;
-  zobrist = 0;
   ep_square = 0;
   for (int i = 0; i<6; i++) {
     pieces[i] = 0;
@@ -345,6 +398,7 @@ Position::Position(char* fen) {
     fen++;
 
   }
+  zobristHash();
 }
 
 }

@@ -4,6 +4,7 @@
 #include <vector>
 #include "types.h"
 #include "utils.h"
+#include "zobrist.h"
 
 
 namespace Wyvern {
@@ -21,18 +22,23 @@ private:
   std::vector<U64> position_history;
   std::vector<enum CastlingRights> cr_history;
   std::vector<int> hmc_history;
+
 public:
+  std::vector<U64>::const_reverse_iterator positionHistoryIteratorBegin();
+  std::vector<U64>::const_reverse_iterator positionHistoryIteratorEnd();
   std::vector<U32> move_history;
   Position();
   Position(char* fen);
   ~Position() = default;
   Position(const Position& pos);
+  void zobristHash();
   int makeMove(U32 move);
   int unmakeMove();
   void printFen();
   void printPretty();
   int getHMC() const;
   int getFMC() const;
+  U64 getZobrist() const;
   enum CastlingRights getCR() const;
   U64* getPieceColors();
   U64* getPieces();
