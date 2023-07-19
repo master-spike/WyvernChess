@@ -68,6 +68,24 @@ namespace Wyvern {
     RANK_8 = RANK_1 << 56
   };
 
+  enum Bound : int{
+    BOUND_EXACT = 0,
+    BOUND_UPPER = 1,
+    BOUND_LOWER = -1
+  };
+
+  struct BoundedEval {
+    enum Bound bound;
+    int eval;
+    BoundedEval operator -() {
+      return BoundedEval((enum Bound)(-bound), -eval);
+    }
+    BoundedEval(enum Bound b, int e) {
+      bound = b; eval = e;
+    }
+    BoundedEval() = default;
+  };
+
   const U64 files[8] = {FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H};
   const U64 ranks[8] = {RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
   

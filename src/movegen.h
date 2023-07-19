@@ -8,6 +8,8 @@
 #include <array>
 #include <vector>
 
+#define MG_NUM_MOVELISTS 1
+
 namespace Wyvern {
 
 
@@ -29,29 +31,29 @@ private:
   void emplaceCaptures(int p, enum PieceType pt, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 targets) {
     for(U64 t = targets & e_p; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
     }
     for(U64 t = targets & e_n; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + CAPTURE_KNIGHT + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_KNIGHT + ((U32)pt << 20));
     }
     for(U64 t = targets & e_b; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + CAPTURE_BISHOP + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_BISHOP + ((U32)pt << 20));
     }
     for(U64 t = targets & e_r; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + CAPTURE_ROOK + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_ROOK + ((U32)pt << 20));
     }
     for(U64 t = targets & e_q; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + CAPTURE_QUEEN + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_QUEEN + ((U32)pt << 20));
     }
   }
   void emplaceNonCaptures(int p, enum PieceType pt, U64 targets) {
     for(U64 t = targets; t; t &= t-1) {
       int tp = __builtin_ctzll(t);
-      categorized_moves[0].emplace_back(p + (tp << 6) + ((U32)pt << 20));
+      generated_moves.emplace_back(p + (tp << 6) + ((U32)pt << 20));
     }
   }
   void emplacePromotions(int p, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 targets) {
@@ -64,11 +66,11 @@ private:
       if (e_r & (1ULL << tp)) cap = CAPTURE_ROOK;
       if (e_q & (1ULL << tp)) cap = CAPTURE_QUEEN;
       for (U32 pp = 0; pp <= (3 << 12); pp += 1 << 12) {
-        categorized_moves[0].emplace_back(p + (tp << 6) + ((U32)cap) + PROMO + pp + MOVE_PAWN);
+        generated_moves.emplace_back(p + (tp << 6) + ((U32)cap) + PROMO + pp + MOVE_PAWN);
       }
     }
   }
-  std::vector<U32> categorized_moves[1];
+  std::vector<U32> generated_moves;
 public:
   U64 knight_attack_table[64];
   U64 king_attack_table[64];
@@ -79,8 +81,9 @@ public:
   MoveGenerator();
   MoveGenerator(const MoveGenerator& in_mg) = delete;
   template<enum Color CT> int generateMoves(Position& pos);
+  U64 inCheck(Position& pos);
   ~MoveGenerator();
-  U32 popMove();
+  U32 popMove(int order);
 };
 
 template<enum PieceType PT, enum Color CT>
@@ -278,10 +281,10 @@ int MoveGenerator::generateMoves(Position& pos) {
     U64 cst_qs = FILE_C & castle_targets;
     U64 cst_ks = FILE_G & castle_targets;
     if (cst_ks) {
-      categorized_moves[0].emplace_back((64 * __builtin_ctzll(cst_ks) + myking) + CASTLES + MOVE_KING);
+      generated_moves.emplace_back((64 * __builtin_ctzll(cst_ks) + myking) + CASTLES + MOVE_KING);
     }
     if (cst_qs) {
-      categorized_moves[0].emplace_back((64 * __builtin_ctzll(cst_qs) + myking) + CASTLES + MOVE_KING);
+      generated_moves.emplace_back((64 * __builtin_ctzll(cst_qs) + myking) + CASTLES + MOVE_KING);
     }
   }
   // en passant now
@@ -301,7 +304,7 @@ int MoveGenerator::generateMoves(Position& pos) {
     for (; ep_ps; ep_ps &= ep_ps-1) {
       int p = __builtin_ctzll(ep_ps);
       if (squareAttackedBy<CTO>(myking, pos, blockers ^ (1ULL << p) ^ ep_bb ^ ep_enemy_pawn)) continue;
-      categorized_moves[0].emplace_back((64 * __builtin_ctzll(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
+      generated_moves.emplace_back((64 * __builtin_ctzll(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
     }
   }
   return 0;

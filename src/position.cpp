@@ -161,7 +161,7 @@ void Position::printPretty() {
     for (int j = 0; j < 8; j++) {
       int p = i*8+j;
       char ws = ' ';
-      if ((i+j)&1) ws = '#';
+      if ((i+j)&1) ws = '/';
       char piece = ws;
       if (piece_colors[COLOR_WHITE] & (1ULL << p))
         piece = piece_chars[pieceAtSquare(1ULL << p)];

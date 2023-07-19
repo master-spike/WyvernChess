@@ -27,19 +27,31 @@ U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king
   return pinmask;
 }
 
-U32 MoveGenerator::popMove() {
-  for (int i = 0; i < 1; ++i) {
-    if (!categorized_moves[i].empty()) {
-      U32 move = categorized_moves[i].back();
-      categorized_moves[i].pop_back();
+/*
+int moveRating(U32 move) {
+  if (move & YES_CAPTURE) {
+    move >> 
+  }
+}
+*/
+U32 MoveGenerator::popMove(int order) {
+  U32 best_move = MOVE_NONE;
+  //int bmr = 0;
+  if (order) {
+
+  }
+  else {
+    while(!generated_moves.empty()) {
+      U32 move = generated_moves.back();
+      generated_moves.pop_back();
       if (move != MOVE_NONE) return move;
     }
   }
-  return MOVE_NONE;
+  return best_move;
 }
 
 void MoveGenerator::flushMoves() {
-  categorized_moves[0].clear();
+  generated_moves.clear();
 }
 
 MoveGenerator::MoveGenerator()
@@ -75,6 +87,15 @@ MoveGenerator::MoveGenerator()
     printbb(king_attack_table[i]);
     */
   }
+}
+
+
+U64 MoveGenerator::inCheck(Position& pos) {
+  enum Color tomove = pos.getToMove();
+  if (tomove >= 2) return 0;
+  int myKing = __builtin_ctzll(pos.getPieces()[KING-1] & pos.getPieceColors()[tomove]);
+  if (tomove) return squareAttackedBy<COLOR_WHITE>(myKing, pos, 0);
+  else return squareAttackedBy<COLOR_BLACK>(myKing, pos, 0);
 }
 
 MoveGenerator::~MoveGenerator() {
