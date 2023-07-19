@@ -80,6 +80,11 @@ namespace Wyvern {
     BoundedEval operator -() {
       return BoundedEval((enum Bound)(-bound), -eval);
     }
+    bool operator ==(BoundedEval& bv) {
+      if (bound != bv.bound) return false;
+      if (eval != bv.eval) return false;
+      return true;
+    }
     BoundedEval(enum Bound b, int e) {
       bound = b; eval = e;
     }

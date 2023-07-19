@@ -20,6 +20,7 @@ private:
   U64 zobrist;
   std::vector<U64> position_history;
   std::vector<enum CastlingRights> cr_history;
+  std::vector<int> hmc_history;
 public:
   std::vector<U32> move_history;
   Position();

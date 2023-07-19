@@ -80,7 +80,7 @@ public:
   template<enum Color CT> U64 squareAttackedBy(int p, Position& pos, U64 custom_blockers);
   MoveGenerator();
   MoveGenerator(const MoveGenerator& in_mg) = delete;
-  template<enum Color CT> int generateMoves(Position& pos);
+  template<enum Color CT> int generateMoves(Position& pos, bool incl_quiets);
   U64 inCheck(Position& pos);
   ~MoveGenerator();
   U32 popMove(int order);
@@ -188,7 +188,7 @@ void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, i
 }
 
 template<enum Color CT>
-int MoveGenerator::generateMoves(Position& pos) {
+int MoveGenerator::generateMoves(Position& pos, bool incl_quiets) {
 
   constexpr enum Color CTO = (enum Color) (CT ^ 1); 
   flushMoves();
@@ -246,21 +246,24 @@ int MoveGenerator::generateMoves(Position& pos) {
   if (checkmask) {
     U64 pp_d = bishop_magics[myking].compute(blockers);
     U64 pp_o = rook_magics[myking].compute(blockers);
+
+    U64 v_targets = checkmask & ((incl_quiets) ? 0xFFFFFFFFFFFFFFFFULL : piece_colors[CT^1]);
+    U64 promo_rank = checkmask & ((CT) ? RANK_1 : RANK_8);
     // move ordering:
     // pxq, pxr, px
-    generateStandardMoves<PAWN,CT>(piece_colors[CT] & pieces[PAWN-1], checkmask, blockers, myking,
+    generateStandardMoves<PAWN,CT>(piece_colors[CT] & pieces[PAWN-1], v_targets | promo_rank, blockers, myking,
                                    piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
                                    enemy_rooks, enemy_queens, pp_o, pp_d);
-    generateStandardMoves<KNIGHT,CT>(piece_colors[CT] & pieces[KNIGHT-1], checkmask, blockers, myking,
+    generateStandardMoves<KNIGHT,CT>(piece_colors[CT] & pieces[KNIGHT-1], v_targets, blockers, myking,
                                    piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
                                    enemy_rooks, enemy_queens, pp_o, pp_d);
-    generateStandardMoves<BISHOP,CT>(piece_colors[CT] & pieces[BISHOP-1], checkmask, blockers, myking,
+    generateStandardMoves<BISHOP,CT>(piece_colors[CT] & pieces[BISHOP-1], v_targets, blockers, myking,
                                    piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
                                    enemy_rooks, enemy_queens, pp_o, pp_d);
-    generateStandardMoves<ROOK,CT>(piece_colors[CT] & pieces[ROOK-1], checkmask, blockers, myking,
+    generateStandardMoves<ROOK,CT>(piece_colors[CT] & pieces[ROOK-1], v_targets, blockers, myking,
                                    piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
                                    enemy_rooks, enemy_queens, pp_o, pp_d);
-    generateStandardMoves<QUEEN,CT>(piece_colors[CT] & pieces[QUEEN-1], checkmask, blockers, myking,
+    generateStandardMoves<QUEEN,CT>(piece_colors[CT] & pieces[QUEEN-1], v_targets, blockers, myking,
                                    piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
                                    enemy_rooks, enemy_queens, pp_o, pp_d);
 
@@ -272,11 +275,11 @@ int MoveGenerator::generateMoves(Position& pos) {
     if (squareAttackedBy<CTO>(t, pos, blockers ^ (1ULL << myking))) pseudo_king_moves &= ~(1ULL << t);
   }
   emplaceCaptures(myking, KING, enemy_pawns, enemy_knights, enemy_bishops, enemy_rooks, enemy_queens, pseudo_king_moves & piece_colors[CT^1]);
-  emplaceNonCaptures(myking, KING, pseudo_king_moves & ~piece_colors[CT^1]);
+  if (incl_quiets) emplaceNonCaptures(myking, KING, pseudo_king_moves & ~piece_colors[CT^1]);
 
 
   // castles
-  if (!(~checkmask)) {
+  if (!(~checkmask) && incl_quiets) {
     U64 castle_targets = bbCastles<CT>(pos);
     U64 cst_qs = FILE_C & castle_targets;
     U64 cst_ks = FILE_G & castle_targets;

@@ -6,64 +6,52 @@ namespace Wyvern {
 template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool);
 template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool);
 
-U32 Search::bestmove(Position pos, int depth) {
+U32 Search::bestmove(Position pos, double t_limit) {
+  init_time = time(nullptr);
+  time_limit = t_limit;
   enum Color player_turn = pos.getToMove();
-  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos);
-  else movegen.generateMoves<COLOR_WHITE>(pos);
+  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos, true);
+  else movegen.generateMoves<COLOR_WHITE>(pos, true);
   std::vector<U32> moves;
-  int best_value = -INT32_MAX;
-  std::vector<U32> best_moves;
   U32 m = movegen.popMove(0);
   while (m != MOVE_NONE)
   {
     moves.push_back(m);
     m = movegen.popMove(0);
   }
+  if (moves.size() == 0) return MOVE_NONE;
+  if (moves.size() == 1) return moves.back();
 
   std::vector<BoundedEval> b_evals(moves.size());
+  U32 best_move = MOVE_NONE;
+  int best_eval = -INT32_MAX;
 
-  // iterative deepening up to depth-2 to get promising move order 
-  if (depth >= 3) {
-    for (int id_d = 1; id_d < depth-1; id_d++) {
-      int t_alpha = -INT32_MAX; // temporary value of alpha for ids
-      int i = 0;
-      for (U32 move : moves) {
-        pos.makeMove(move);
-        BoundedEval val;
-        if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true);
-        else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true);
-        pos.unmakeMove();
-        b_evals[i]=val; i++;
-        if (val.eval > t_alpha) t_alpha = val.eval;
-        // no fail, as we want to at least seach all nodes here for move ordering.
-      }
-      sortMoves(moves, b_evals);
+  for (int id_d = 1; difftime(time(nullptr), init_time) < time_limit; id_d++) {
+    int t_alpha = -INT32_MAX; // temporary value of alpha for ids
+    int i = 0;
+    for (U32 move : moves) {
+      pos.makeMove(move);
+      BoundedEval val;
+      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true);
+      else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true);
+      pos.unmakeMove();
+      if (difftime(time(nullptr), init_time) >= time_limit) return best_move;
+      b_evals[i]=val; i++;
+      if (val.eval > best_eval && val.bound != BOUND_LOWER) {
+        best_eval = val.eval; best_move = move;
+      } 
+      if (val.eval > t_alpha) t_alpha = val.eval;
+      // no fail, as we want to at least seach all nodes here for move ordering.
+    }
+    sortMoves(moves, b_evals);
+    BoundedEval ref_beval = bestEvalInVector(b_evals);
+    for (size_t i = 0; i < b_evals.size(); ++i) {
+      if (b_evals[i] == ref_beval) best_move = moves[i];
     }
   }
-  for (U32 move : moves) {
-    std::cout << std::hex << move;
-    pos.makeMove(move);
-    BoundedEval val(BOUND_EXACT,0);
-    if (player_turn)
-      val = -negamax<COLOR_WHITE>(pos, depth-1, -INT32_MAX, -best_value, true);
-    else
-      val = -negamax<COLOR_BLACK>(pos, depth-1, -INT32_MAX, -best_value, true);
-    if (val.eval > best_value) {
-      best_moves.clear();
-      best_moves.push_back(move);
-    }
-    else if (val.eval == best_value && val.bound == BOUND_EXACT) {
-      best_moves.push_back(move);
-    }
-    best_value = (val.eval >= best_value) ? val.eval : best_value;
-    std::string pr_bound = (val.bound == BOUND_EXACT) ? "=="
-                         : (val.bound == BOUND_UPPER) ? "<=" : ">=";
-    std::cout << " value" << pr_bound << std::dec << val.eval << std::endl;
 
-    pos.unmakeMove();
-  }
-  if (best_moves.size() == 0) return MOVE_NONE;
-  return best_moves[rand64() % best_moves.size()];
+  return (best_move);
+
 }
 
 U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks) {
@@ -94,8 +82,8 @@ U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_
     return 1;
   }
   int sum = 0;
-  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos);
-  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos);
+  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos, true);
+  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos, true);
   std::vector<U32> moves;
   for (U32 move = movegen.popMove(0); move != MOVE_NONE; move = movegen.popMove(0)) {
     moves.push_back(move);
@@ -155,16 +143,14 @@ void Search::sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals)
     std::swap(evals[i],evals[best_index]);
     std::swap(moves[i],moves[best_index]);
   }
-  for (int i = ub_count; i < ub_count; i++) {
-    for (U64 j = i; j < moves.size(); j++) {
-      if (evals[j].bound == BOUND_UPPER) {
-        std::swap(evals[i],evals[j]);
-        std::swap(moves[i],moves[j]);
-        break;
-      }
-    }
-  }
+}
 
+BoundedEval Search::bestEvalInVector(std::vector<BoundedEval>& b_evals) {
+  BoundedEval best = BoundedEval(BOUND_EXACT, -INT32_MAX);
+  for (BoundedEval b : b_evals) {
+    if (b.eval > best.eval && (b.bound == BOUND_EXACT || b.bound == BOUND_LOWER)) best = b;
+  }
+  return best;
 }
 
 }

@@ -131,7 +131,7 @@ template void MoveGenerator::generateStandardMoves<BISHOP, COLOR_BLACK>(U64, U64
 template void MoveGenerator::generateStandardMoves<ROOK, COLOR_BLACK>(U64, U64, U64, int, U64, U64, U64, U64, U64, U64, U64, U64);
 template void MoveGenerator::generateStandardMoves<QUEEN, COLOR_BLACK>(U64, U64, U64, int, U64, U64, U64, U64, U64, U64, U64, U64);
 
-template int MoveGenerator::generateMoves<COLOR_BLACK>(Position& pos);
-template int MoveGenerator::generateMoves<COLOR_WHITE>(Position& pos);
+template int MoveGenerator::generateMoves<COLOR_BLACK>(Position&, bool);
+template int MoveGenerator::generateMoves<COLOR_WHITE>(Position&, bool);
 
 }

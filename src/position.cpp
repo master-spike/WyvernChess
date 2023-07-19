@@ -15,7 +15,10 @@ int Position::makeMove(U32 move) {
   U64 tbb = 1ULL << tsq;
   int pt = ((move >> 20) & 7) - 1;
   cr_history.emplace_back(castling);
+  hmc_history.emplace_back(fifty_half_moves);
   ep_square = 0;
+  fifty_half_moves++;
+  if (pt == PAWN - 1) fifty_half_moves = 0;
   if (special == ENPASSANT) {
     U64 ep_tgt = (tomove) ? tbb << 8 : tbb >> 8; 
     pieces[PAWN-1] ^= ibb ^ tbb ^ ep_tgt;
@@ -54,6 +57,7 @@ int Position::makeMove(U32 move) {
                                        :(enum CastlingRights) (castling & ~CR_BLACK);
   }
   if (is_capture) {
+    fifty_half_moves = 0;
     piece_colors[tomove^1] ^= tbb;
     pieces[capture_piece] ^= tbb;
       if (tbb & FILE_A & RANK_1) castling = (enum CastlingRights) (castling & ~CR_WQ);
@@ -61,6 +65,7 @@ int Position::makeMove(U32 move) {
       if (tbb & FILE_A & RANK_8) castling = (enum CastlingRights) (castling & ~CR_BQ);
       if (tbb & FILE_H & RANK_8) castling = (enum CastlingRights) (castling & ~CR_BK);
   }
+  full_moves += tomove;
   tomove = (enum Color) (tomove ^ 1);
   move_history.emplace_back(move);
   position_history.emplace_back(zobrist);
@@ -72,6 +77,7 @@ int Position::unmakeMove() {
   enum PieceType captured_piece = (enum PieceType) ((move >> 17) & 7);
   zobrist = position_history.back();
   tomove = (enum Color) (tomove ^ 1);
+  full_moves -= tomove;
   int isq = move & 0x3F;
   int tsq = (move >> 6) & 0x3F;
   U64 ibb = 1ULL << isq;
@@ -117,6 +123,8 @@ int Position::unmakeMove() {
       ep_square = (1ULL << ((pm_t + pm_i)/2)) & files[pm_i & 7];
     }
   }
+  fifty_half_moves = hmc_history.back();
+  hmc_history.pop_back();
   castling = cr_history.back();
   cr_history.pop_back();
   move_history.pop_back();
