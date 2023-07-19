@@ -163,6 +163,12 @@ void Position::printFen() {
 
 void Position::printPretty() {
   const char piece_chars[7] = {'?','P','N','B','R','Q','K'};
+  const char dest_wsl = '(';
+  const char dest_wsr = ')';
+  const char dep_char = '+';
+  U32 last_move = (move_history.empty()) ? MOVE_NONE : move_history.back();
+  int isq = (last_move) ? last_move&63 : 64;
+  int tsq = (last_move) ? (last_move >> 6) & 63 : 64;
   std::cout << "+---+---+---+---+---+---+---+---+" << std::endl;
   for (int i = 7; i >= 0; --i) {
     std::cout << '|';
@@ -170,12 +176,19 @@ void Position::printPretty() {
       int p = i*8+j;
       char ws = ' ';
       if ((i+j)&1) ws = '/';
+      char wsl = ws;
+      char wsr = ws;
+      if (i*8 + j == tsq) {
+        wsl = dest_wsl;
+        wsr = dest_wsr;
+      }
       char piece = ws;
+      if (i*8 + j == isq) piece = dep_char;
       if (piece_colors[COLOR_WHITE] & (1ULL << p))
         piece = piece_chars[pieceAtSquare(1ULL << p)];
       if (piece_colors[COLOR_BLACK] & (1ULL << p))
         piece = piece_chars[pieceAtSquare(1ULL << p)] + ('a' - 'A');
-      std::cout << ws << piece << ws <<'|';
+      std::cout << wsl << piece << wsr <<'|';
     }
     std::cout << std::endl << "+---+---+---+---+---+---+---+---+" << std::endl;
   }
