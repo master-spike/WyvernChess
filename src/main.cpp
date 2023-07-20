@@ -4,6 +4,7 @@
 #include "magicbb.h"
 #include "evaluate.h"
 #include <iostream>
+#include <memory>
 #include <iomanip>
 #include <ctime>
 
@@ -62,7 +63,9 @@ int main() {
 
     Wyvern::Position pos;
 
-    Wyvern::Evaluator evaluator;
+    std::shared_ptr<Wyvern::MagicTable> tt_ptr = std::make_shared<Wyvern::MagicTable>();
+
+    Wyvern::Evaluator evaluator(tt_ptr);
 
     while (true)
     {
@@ -71,7 +74,7 @@ int main() {
         pos.printPretty();
         std::cout << std::dec << "Static evaluation " <<
                      ((pos.getToMove()) ? -evaluator.evalPositional(pos) : evaluator.evalPositional(pos)) << std::endl;
-        U32 chosen_move = my_search.bestmove(pos, 4.0);
+        U32 chosen_move = my_search.bestmove(pos, 8.0);
         if (chosen_move == Wyvern::MOVE_NONE) break;
         pos.makeMove(chosen_move);
         while(difftime(time(nullptr), t0) < 0.5) {

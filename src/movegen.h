@@ -30,8 +30,8 @@ private:
   void flushMoves();
   void emplaceCaptures(int p, enum PieceType pt, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 targets) {
     for(U64 t = targets & e_p; t; t &= t - 1) {
-      int tp = __builtin_ctzll(t);
-      generated_moves.emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
+        int tp = __builtin_ctzll(t);
+        generated_moves.emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
     }
     for(U64 t = targets & e_n; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
@@ -72,27 +72,24 @@ private:
   }
   std::vector<U32> generated_moves;
 public:
-  U64 knight_attack_table[64];
-  U64 king_attack_table[64];
-  MagicBB rook_magics[64];
-  MagicBB bishop_magics[64];
-  U64* magic_table;
+  std::shared_ptr<MagicTable> mt;
   template<enum Color CT> U64 squareAttackedBy(int p, Position& pos, U64 custom_blockers);
-  MoveGenerator();
+  MoveGenerator() = delete;
+  MoveGenerator(std::shared_ptr<MagicTable> _mt);
   MoveGenerator(const MoveGenerator& in_mg) = delete;
   template<enum Color CT> int generateMoves(Position& pos, bool incl_quiets);
   U64 inCheck(Position& pos);
-  ~MoveGenerator();
+  ~MoveGenerator() = default;
   U32 popMove(int order);
 };
 
 template<enum PieceType PT, enum Color CT>
 U64 MoveGenerator::bbPseudoLegalMoves(int p, U64 postmask, U64 bb_blockers) {
-  if constexpr (PT == KNIGHT) return knight_attack_table[p] & postmask;
-  if constexpr (PT == BISHOP) return bishop_magics[p].compute(bb_blockers) & postmask;
-  if constexpr (PT == ROOK) return rook_magics[p].compute(bb_blockers) & postmask;
-  if constexpr (PT == KING) return king_attack_table[p] & postmask;
-  if constexpr (PT == QUEEN) return (bishop_magics[p].compute(bb_blockers) | rook_magics[p].compute(bb_blockers)) & postmask;
+  if constexpr (PT == KNIGHT) return mt->knight_table[p] & postmask;
+  if constexpr (PT == BISHOP) return mt->bishop_magics[p].compute(bb_blockers) & postmask;
+  if constexpr (PT == ROOK) return mt->rook_magics[p].compute(bb_blockers) & postmask;
+  if constexpr (PT == KING) return mt->king_table[p] & postmask;
+  if constexpr (PT == QUEEN) return (mt->bishop_magics[p].compute(bb_blockers) | mt->rook_magics[p].compute(bb_blockers)) & postmask;
   if constexpr (PT == PAWN) {
     if constexpr (CT == COLOR_WHITE) {
       U64 pawn = 1ULL << p;
@@ -140,11 +137,11 @@ U64 MoveGenerator::squareAttackedBy(int p, Position& pos, U64 custom_blockers) {
   U64* pcs = pos.getPieces();
   U64 blockers = (custom_blockers) ? custom_blockers : (pcols[0] | pcols[1]) & ~(1ULL << p);
   U64 attackers = 0;
-  attackers |= pcs[QUEEN-1] & (bishop_magics[p].compute(blockers) | rook_magics[p].compute(blockers));
-  attackers |= pcs[ROOK-1] &(rook_magics[p].compute(blockers));
-  attackers |= pcs[BISHOP-1] & (bishop_magics[p].compute(blockers));
-  attackers |= pcs[KNIGHT-1] & knight_attack_table[p];
-  attackers |= pcs[KING-1] & king_attack_table[p];
+  attackers |= pcs[QUEEN-1] & (mt->bishop_magics[p].compute(blockers) | mt->rook_magics[p].compute(blockers));
+  attackers |= pcs[ROOK-1] &(mt->rook_magics[p].compute(blockers));
+  attackers |= pcs[BISHOP-1] & (mt->bishop_magics[p].compute(blockers));
+  attackers |= pcs[KNIGHT-1] & mt->knight_table[p];
+  attackers |= pcs[KING-1] & mt->king_table[p];
   if constexpr (CT == COLOR_WHITE) {
     attackers |= pcs[PAWN-1] & ((1ULL << (p - 7) & ~FILE_A) | (1ULL << (p - 9) & ~FILE_H));
   }
@@ -222,12 +219,12 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets) {
         break;
       default:
         if ((king_file ^ king_rank) & checkers) {
-          checkmask = rook_magics[__builtin_ctzll(checkers)].compute(blockers)
-                    & rook_magics[myking].compute(blockers);
+          checkmask = mt->rook_magics[__builtin_ctzll(checkers)].compute(blockers)
+                    & mt->rook_magics[myking].compute(blockers);
         }
         else {
-          checkmask = bishop_magics[__builtin_ctzll(checkers)].compute(blockers)
-                    & bishop_magics[myking].compute(blockers);
+          checkmask = mt->bishop_magics[__builtin_ctzll(checkers)].compute(blockers)
+                    & mt->bishop_magics[myking].compute(blockers);
         }
     }
     checkmask |= checkers;
@@ -244,8 +241,8 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets) {
 
   //printbb(checkmask);
   if (checkmask) {
-    U64 pp_d = bishop_magics[myking].compute(blockers);
-    U64 pp_o = rook_magics[myking].compute(blockers);
+    U64 pp_d = mt->bishop_magics[myking].compute(blockers);
+    U64 pp_o = mt->rook_magics[myking].compute(blockers);
 
     U64 v_targets = checkmask & ((incl_quiets) ? 0xFFFFFFFFFFFFFFFFULL : piece_colors[CT^1]);
     U64 promo_rank = checkmask & ((CT) ? RANK_1 : RANK_8);

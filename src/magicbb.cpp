@@ -9,6 +9,58 @@
 
 namespace Wyvern {
 
+MagicTable::MagicTable()
+:knight_table{}
+,king_table{}
+,bishop_magics{}
+,rook_magics{}
+,passed_pawns{} {
+  initialiseAllMagics(bishop_magics, rook_magics);
+  for (int i = 0; i < 64; i++) {
+    U64 kf = (1ULL << i);
+    if (i >= 8) kf |= kf >> 8;
+    if (i < 56) kf |= kf << 8;
+    U64 kfr = (kf << 1) & ~(FILE_A);
+    U64 kfl = (kf >> 1) & ~(FILE_H);
+    king_table[i] = (kf | kfr | kfl) & ~(1ULL << i);
+
+    U64 filem = FILE_A << (i % 8);
+    U64 filer = (filem << 1) & ~(FILE_A);
+    U64 filel = (filem >> 1) & ~(FILE_H);
+    U64 filerr = (filer << 1) & ~(FILE_A);
+    U64 filell =  (filel >> 1) & ~(FILE_H);
+    U64 ranktt = (i / 8 < 6) ? ranks[i / 8 + 2] : 0;
+    U64 rankt = (i / 8 < 7) ? ranks[i / 8 + 1] : 0;
+    U64 rankb = (i / 8 > 0) ? ranks[i / 8 - 1] : 0;
+    U64 rankbb = (i / 8 > 1) ? ranks[i / 8 - 2] : 0;
+    knight_table[i]  = (ranktt | rankbb) & (filer | filel);
+    knight_table[i] |= (filell | filerr) & (rankt | rankb);
+
+    U64 pp_files = files[i % 8];
+    pp_files |= (pp_files << 1 & ~FILE_H) | (pp_files >> 1 & ~FILE_A);
+    U64 pp_white = pp_files;
+    U64 pp_black = pp_files;
+    for (int j = 0; j <= i/8; j++) {
+      pp_white &= ~ranks[j];
+    }
+    for (int j = 7; j >= i/8; j--) {
+      pp_black &= ~ranks[j];
+    }
+    passed_pawns[i] = pp_white;
+    passed_pawns[i + 64] = pp_black;
+  }
+}
+
+MagicTable::MagicTable(MagicTable &mt) {
+  for (int i = 0; i < 64; i++) {
+    knight_table[i] = mt.knight_table[i];
+    king_table[i] = mt.king_table[i];
+    rook_magics[i] = MagicBB(mt.rook_magics[i]);
+    bishop_magics[i] = MagicBB(mt.bishop_magics[i]);
+    passed_pawns[i] = mt.passed_pawns[i];
+    passed_pawns[i+64] = mt.passed_pawns[i+64];
+  }
+}
 
 MagicBB::MagicBB(int sq, U64 mg, U64 ms, int b){
   square = sq;
@@ -192,8 +244,8 @@ const U64 bishop_magic_numbers[64] = {
         return nullptr;
       }
     }
-
-    return table;
+    delete[] table;
+    return nullptr;
   }
 
 }

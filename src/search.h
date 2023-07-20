@@ -11,6 +11,7 @@ namespace Wyvern {
 
 class Search {
 private:
+  std::shared_ptr<MagicTable> mt;
   Evaluator evaluator;
   MoveGenerator movegen;
   void sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals);
@@ -21,7 +22,7 @@ private:
   BoundedEval bestEvalInVector(std::vector<BoundedEval>& b_evals);
   bool checkThreeReps(Position& pos);
 public:
-  Search() = default;
+  Search();
   U32 bestmove(Position pos, double t_limit);
   template<enum Color CT>
   BoundedEval negamax(Position& pos, int depth, int alpha, int beta,  bool iter_deep);
@@ -99,56 +100,59 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   }
   std::vector<BoundedEval> b_evals(moves.size());
 
+  BoundedEval best_so_far = BoundedEval(BOUND_EXACT, -INT32_MAX);
+  int bsf_depth = -1;
+
   // iterative deepening up to depth-2 to get promising move order 
-  if (iter_deep && moves.size() >= 6 && depth >= 2) {
-    for (int id_d = 1; id_d < depth-1; id_d++) {
-      int t_alpha = alpha; // temporary value of alpha for ids
-      int i = 0;
-      for (U32 move : moves) {
-        pos.makeMove(move);
-        int extension= 0;
-        if ((move & YES_CAPTURE) || movegen.inCheck(pos)) extension = 1;
-        BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, iter_deep);
-        if (val.eval <= 40-INT32_MAX) val.eval++;
-        if (val.eval >= INT32_MAX-40) val.eval--;
-        pos.unmakeMove();
-        b_evals[i++]=val;
-        if (difftime(time(nullptr), init_time) >= time_limit) {
-          BoundedEval r_eval = bestEvalInVector(b_evals);
-          r_eval.bound = BOUND_LOWER; return r_eval;
-        }
-        if (val.eval > t_alpha) t_alpha = val.eval;
-        // no fail, as we want to at least seach all nodes here for move ordering.
-      }
-      sortMoves(moves, b_evals);
-    }
-  }
-  int best_val = -INT32_MAX;
-  enum Bound bound = BOUND_EXACT;
-  for (U32 move : moves) {
-    pos.makeMove(move);
+  for (int id_d = 0; id_d < depth; id_d++) {
+    int t_alpha = alpha; // temporary value of alpha for ids
     int i = 0;
-    int extension= 0;
-    if ((move & YES_CAPTURE) || movegen.inCheck(pos)) extension = 1;
-    BoundedEval val = -negamax<CTO>(pos, depth - 1 + extension, -beta, -alpha, iter_deep);
-    // to prefer further mates / closer mates
-    if (val.eval <= 40-INT32_MAX) val.eval++;
-    if (val.eval >= INT32_MAX-40) val.eval--;
-    pos.unmakeMove();
-    b_evals[i++]=val;
-    if (difftime(time(nullptr), init_time) >= time_limit) {
-      BoundedEval r_eval = bestEvalInVector(b_evals);
-      r_eval.bound = BOUND_LOWER; return r_eval;
+    for (U32 move : moves) {
+      pos.makeMove(move);
+      int extension= 0;
+      if ((move & YES_CAPTURE) || movegen.inCheck(pos)) extension = 1;
+
+      //passed pawn push
+      U64 enemy_pawns = pos.getPieceColors()[CT^1] & pos.getPieces()[PAWN-1];
+      if ((move >> 20 & 7) == PAWN && !(enemy_pawns & mt->passed_pawns[64*CT + (move&63)])) extension = 1;
+      
+      bool lmr = false;
+      // do not do lmr on captures, check evasions, shallow depth searches, early moves.
+      if (!extension &&  !((move & CASTLES) == PROMO) && i >= 4 && id_d > 3) {
+        lmr = true;
+        extension = -1;
+      } 
+      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, iter_deep);
+      if (val.eval >= t_alpha && val.bound != BOUND_UPPER && lmr) {
+        // if not a bad looking move re-search at unreduced depth for late move reductions
+        extension++; 
+        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, iter_deep);
+      } 
+      pos.unmakeMove();
+      if (val.eval > best_so_far.eval && bsf_depth <= id_d + extension) {
+        best_so_far = val;
+        bsf_depth = id_d + extension;
+      }
+      // add 1 to "distance" if result is forced mate
+      if (val.eval <= 40-INT32_MAX) val.eval++;
+      if (val.eval >= INT32_MAX-40) val.eval--;
+        
+      b_evals[i++]=val;
+      if (difftime(time(nullptr), init_time) >= time_limit) {
+        BoundedEval r_eval = bestEvalInVector(b_evals);
+        r_eval.bound = BOUND_LOWER; return r_eval;
+      }
+      if (val.eval > t_alpha) t_alpha = val.eval;
+      // no fail if id_d < depth - 1, as we want to at least seach all nodes here for move ordering.
+      if (t_alpha >= beta && id_d == depth - 1) {
+        // at max depth of ids we may cut-off and return a lower bound
+        return best_so_far;
+      }
     }
-    alpha = (val.eval > alpha) ? val.eval : alpha;
-    best_val = (val.eval > best_val) ? val.eval : best_val;
-    bound = (val.eval > best_val) ? val.bound : bound;
-    if (alpha >= beta) {
-      //std::cout << "cutoff" << std::endl;
-      bound = BOUND_LOWER; break;
-    }
+    sortMoves(moves, b_evals);
   }
-  return BoundedEval(bound, best_val);
+
+  return best_so_far;
 }
 
 }

@@ -167,4 +167,11 @@ BoundedEval Search::bestEvalInVector(std::vector<BoundedEval>& b_evals) {
   return best;
 }
 
+Search::Search():
+mt(std::make_shared<MagicTable>()),
+evaluator(mt),
+movegen(mt)
+{
+}
+
 }

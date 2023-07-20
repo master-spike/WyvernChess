@@ -3,11 +3,59 @@
 
 #include "types.h"
 #include "utils.h"
+#include <memory>
 
 #define MAGIC_MAX_TRIALS 0x10000000000ULL
 
 namespace Wyvern 
 {
+
+class MagicBB {
+private:
+  int square;
+  U64 mask;
+  U64 magicnum;
+  std::vector<U64> table;
+  int bits;
+public:
+  MagicBB() = default;
+  MagicBB(int sq, U64 mg, U64 ms, int b);
+  MagicBB(const MagicBB& in_mbb);
+  U64 compute(U64 blockers);
+  ~MagicBB() = default;
+  template<enum PieceType PT>
+  int initialise() {
+    if (PT != ROOK && PT != BISHOP) return 1;
+    //printSq(square); std::cout << std::endl;
+    //printbb(mask);
+    table = std::vector<U64>(1 << bits, 0);
+    U64 blockers = 0;
+    for (U64 i = 0; i < (1ULL << bits); i++) {
+      U64 attacks = generateAttacks<PT>(square, blockers);
+      U64 index = (magicnum * blockers) >> (64 - bits);
+      //printbb(blockers); std::cout << std::endl; printbb(attacks); std::cout << std::endl;
+      //std::cout << "----------------" << std::endl;
+      if (!table[index]) table[index] = attacks;
+      else if (table[index] != attacks) return 1; 
+      blockers = (blockers - mask) & mask;
+    }
+    //std::cout << std::endl << "================" << std::endl;
+    return 0;
+  }// returns 1 on failure
+};
+
+
+class MagicTable {
+public:
+  U64 knight_table[64];
+  U64 king_table[64];
+  MagicBB bishop_magics[64];
+  MagicBB rook_magics[64];
+  U64 passed_pawns[128]; // sq + color*64;
+  MagicTable();
+  ~MagicTable() = default;
+  MagicTable(MagicTable& mt);
+};
 
 template<enum PieceType PT>
 U64 generateAttacks(int p, U64 blockers) {
@@ -76,40 +124,8 @@ U64 generateAttacks(int p, U64 blockers) {
   return 0;
 }
 
-class MagicBB {
-private:
-  int square;
-  U64 mask;
-  U64 magicnum;
-  std::vector<U64> table;
-  int bits;
-public:
-  MagicBB() = default;
-  MagicBB(int sq, U64 mg, U64 ms, int b);
-  MagicBB(const MagicBB& in_mbb);
-  U64 compute(U64 blockers);
-  ~MagicBB() = default;
+
     
-  template<enum PieceType PT>
-  int initialise() {
-    if (PT != ROOK && PT != BISHOP) return 1;
-    //printSq(square); std::cout << std::endl;
-    //printbb(mask);
-    table = std::vector<U64>(1 << bits, 0);
-    U64 blockers = 0;
-    for (U64 i = 0; i < (1ULL << bits); i++) {
-      U64 attacks = generateAttacks<PT>(square, blockers);
-      U64 index = (magicnum * blockers) >> (64 - bits);
-      //printbb(blockers); std::cout << std::endl; printbb(attacks); std::cout << std::endl;
-      //std::cout << "----------------" << std::endl;
-      if (!table[index]) table[index] = attacks;
-      else if (table[index] != attacks) return 1; 
-      blockers = (blockers - mask) & mask;
-    }
-    //std::cout << std::endl << "================" << std::endl;
-    return 0;
-  }// returns 1 on failure
-};
 
 static const int magicRBits[64] = {
   12, 11, 11, 11, 11, 11, 11, 12,

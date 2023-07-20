@@ -10,19 +10,19 @@ U64 MoveGenerator::makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king
   U64 bl_m_p = blockers & ~p_bit;
   if (pp_d & p_bit) {
     U64 bl_m_p = blockers & ~p_bit;
-    U64 kattack_through_p = bishop_magics[king].compute(bl_m_p);
+    U64 kattack_through_p = mt->bishop_magics[king].compute(bl_m_p);
     // pinner can have at most 1 bit set because of math!
-    U64 pinner = bishop_magics[p].compute(blockers)
+    U64 pinner = mt->bishop_magics[p].compute(blockers)
                  & kattack_through_p
                  & (enemy_diag);
-    if (pinner) pinmask = kattack_through_p & (bishop_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
+    if (pinner) pinmask = kattack_through_p & (mt->bishop_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
   }
   else if (pp_o & p_bit) {
-    U64 kattack_through_p = rook_magics[king].compute(bl_m_p);
-    U64 pinner = rook_magics[p].compute(blockers)
+    U64 kattack_through_p = mt->rook_magics[king].compute(bl_m_p);
+    U64 pinner = mt->rook_magics[p].compute(blockers)
                  & kattack_through_p
                  & (enemy_orth);
-    if (pinner) pinmask = kattack_through_p & (rook_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
+    if (pinner) pinmask = kattack_through_p & (mt->rook_magics[__builtin_ctzll(pinner)].compute(bl_m_p) | pinner);
   }
   return pinmask;
 }
@@ -54,41 +54,6 @@ void MoveGenerator::flushMoves() {
   generated_moves.clear();
 }
 
-MoveGenerator::MoveGenerator()
-:knight_attack_table{}
-,king_attack_table{}
-,rook_magics{}
-,bishop_magics{}
-,magic_table(nullptr) {
-  magic_table = initialiseAllMagics(bishop_magics, rook_magics);
-  for (int i = 0; i < 64; i++) {
-    U64 kf = (1ULL << i);
-    if (i >= 8) kf |= kf >> 8;
-    if (i < 56) kf |= kf << 8;
-    U64 kfr = (kf << 1) & ~(FILE_A);
-    U64 kfl = (kf >> 1) & ~(FILE_H);
-    king_attack_table[i] = (kf | kfr | kfl) & ~(1ULL << i);
-
-    U64 filem = FILE_A << (i % 8);
-    U64 filer = (filem << 1) & ~(FILE_A);
-    U64 filel = (filem >> 1) & ~(FILE_H);
-    U64 filerr = (filer << 1) & ~(FILE_A);
-    U64 filell =  (filel >> 1) & ~(FILE_H);
-    U64 ranktt = (i / 8 < 6) ? ranks[i / 8 + 2] : 0;
-    U64 rankt = (i / 8 < 7) ? ranks[i / 8 + 1] : 0;
-    U64 rankb = (i / 8 > 0) ? ranks[i / 8 - 1] : 0;
-    U64 rankbb = (i / 8 > 1) ? ranks[i / 8 - 2] : 0;
-    knight_attack_table[i]  = (ranktt | rankbb) & (filer | filel);
-    knight_attack_table[i] |= (filell | filerr) & (rankt | rankb);
-    /*
-    std::cout << "KNIGHT ATTACKS FROM " << (char) ('a'+(i % 8)) << (char) ('1'+(i/8)) << '\n';
-    printbb(knight_attack_table[i]);
-    std::cout << "KING ATTACKS FROM " << (char) ('a'+(i % 8)) << (char) ('1'+(i/8)) << '\n';
-    printbb(king_attack_table[i]);
-    */
-  }
-}
-
 
 U64 MoveGenerator::inCheck(Position& pos) {
   enum Color tomove = pos.getToMove();
@@ -98,10 +63,10 @@ U64 MoveGenerator::inCheck(Position& pos) {
   else return squareAttackedBy<COLOR_BLACK>(myKing, pos, 0);
 }
 
-MoveGenerator::~MoveGenerator() {
-  std::cout << "mg destructor" << std::endl;
-  delete[] magic_table;
+MoveGenerator::MoveGenerator(std::shared_ptr<MagicTable> _mt) {
+  mt = std::shared_ptr<MagicTable>(_mt);
 }
+
 
 template U64 MoveGenerator::bbCastles<COLOR_BLACK>(Position& pos);
 template U64 MoveGenerator::bbCastles<COLOR_WHITE>(Position& pos);
