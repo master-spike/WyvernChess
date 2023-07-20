@@ -36,8 +36,7 @@ U32 Search::bestmove(Position pos, double t_limit) {
       else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true);
       pos.unmakeMove();
       if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
-        printStats();
-        return best_move;
+        break;
       }
       b_evals[i]=val; i++;
       if (val.eval > best_eval && val.bound != BOUND_LOWER) {
@@ -45,6 +44,9 @@ U32 Search::bestmove(Position pos, double t_limit) {
       } 
       if (val.eval > t_alpha) t_alpha = val.eval;
       // no fail, as we want to at least seach all nodes here for move ordering.
+    }
+    if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
+      break;
     }
     sortMoves(moves, b_evals);
     BoundedEval ref_beval = bestEvalInVector(b_evals);
