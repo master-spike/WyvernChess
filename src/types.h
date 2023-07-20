@@ -71,7 +71,8 @@ namespace Wyvern {
   enum Bound : int{
     BOUND_EXACT = 0,
     BOUND_UPPER = 1,
-    BOUND_LOWER = -1
+    BOUND_LOWER = -1,
+    BOUND_INVALID = 2
   };
 
   struct BoundedEval {

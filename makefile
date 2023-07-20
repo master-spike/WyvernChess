@@ -1,11 +1,11 @@
 CC = g++
-FLAGS = -Wall -Werror -std=c++2a -O3
+FLAGS = -Wall -Werror -std=c++2a -O3 -g
 
 srcdir = src
 
 
 objdir = objects
-objects = main.o magicbb.o movegen.o position.o search.o utils.o evaluate.o zobrist.o zobrist_generate.o
+objects = main.o magicbb.o movegen.o position.o search.o utils.o evaluate.o zobrist.o transposition.o zobrist_generate.o
 builddir = build
 utilitiesdir = utilities
 utilities = zobrist_generate

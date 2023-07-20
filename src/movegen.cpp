@@ -34,24 +34,9 @@ int moveRating(U32 move) {
   }
 }
 */
-U32 MoveGenerator::popMove(int order) {
-  U32 best_move = MOVE_NONE;
-  //int bmr = 0;
-  if (order) {
-
-  }
-  else {
-    while(!generated_moves.empty()) {
-      U32 move = generated_moves.back();
-      generated_moves.pop_back();
-      if (move != MOVE_NONE) return move;
-    }
-  }
-  return best_move;
-}
 
 void MoveGenerator::flushMoves() {
-  generated_moves.clear();
+  move_targets->clear();
 }
 
 
@@ -96,7 +81,7 @@ template void MoveGenerator::generateStandardMoves<BISHOP, COLOR_BLACK>(U64, U64
 template void MoveGenerator::generateStandardMoves<ROOK, COLOR_BLACK>(U64, U64, U64, int, U64, U64, U64, U64, U64, U64, U64, U64);
 template void MoveGenerator::generateStandardMoves<QUEEN, COLOR_BLACK>(U64, U64, U64, int, U64, U64, U64, U64, U64, U64, U64, U64);
 
-template int MoveGenerator::generateMoves<COLOR_BLACK>(Position&, bool);
-template int MoveGenerator::generateMoves<COLOR_WHITE>(Position&, bool);
+template int MoveGenerator::generateMoves<COLOR_BLACK>(Position&, bool, std::vector<U32>*);
+template int MoveGenerator::generateMoves<COLOR_WHITE>(Position&, bool, std::vector<U32>*);
 
 }

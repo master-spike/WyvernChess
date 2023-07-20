@@ -7,18 +7,18 @@ template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool
 template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool);
 
 U32 Search::bestmove(Position pos, double t_limit) {
+  current_depth = 0;
+  max_depth = 0;
+  node_count = 0;
+  node_count_qs = 0;
+  table_hits = 0;
   init_time = time(nullptr);
   time_limit = t_limit;
   enum Color player_turn = pos.getToMove();
-  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos, true);
-  else movegen.generateMoves<COLOR_WHITE>(pos, true);
   std::vector<U32> moves;
-  U32 m = movegen.popMove(0);
-  while (m != MOVE_NONE)
-  {
-    moves.push_back(m);
-    m = movegen.popMove(0);
-  }
+  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos, true, &moves);
+  else movegen.generateMoves<COLOR_WHITE>(pos, true, &moves);
+
   if (moves.size() == 0) return MOVE_NONE;
   if (moves.size() == 1) return moves.back();
 
@@ -26,7 +26,7 @@ U32 Search::bestmove(Position pos, double t_limit) {
   U32 best_move = MOVE_NONE;
   int best_eval = -INT32_MAX;
 
-  for (int id_d = 1; difftime(time(nullptr), init_time) < time_limit; id_d++) {
+  for (int id_d = 0; difftime(time(nullptr), init_time) < time_limit; id_d++) {
     int t_alpha = -INT32_MAX; // temporary value of alpha for ids
     int i = 0;
     for (U32 move : moves) {
@@ -35,7 +35,10 @@ U32 Search::bestmove(Position pos, double t_limit) {
       if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true);
       else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true);
       pos.unmakeMove();
-      if (difftime(time(nullptr), init_time) >= time_limit) return best_move;
+      if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
+        printStats();
+        return best_move;
+      }
       b_evals[i]=val; i++;
       if (val.eval > best_eval && val.bound != BOUND_LOWER) {
         best_eval = val.eval; best_move = move;
@@ -49,10 +52,19 @@ U32 Search::bestmove(Position pos, double t_limit) {
       if (b_evals[i] == ref_beval) best_move = moves[i];
     }
   }
-
+  printStats();
   return (best_move);
 
 }
+
+void Search::printStats() {
+  std::cout << "Nodes total = "  << node_count
+            << ", Quiesce = "    << node_count_qs
+            << ", Max depth = "  << max_depth
+            << ", Table hits = " << table_hits
+            << std::endl;
+}
+
 
 U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks) {
 
@@ -82,12 +94,9 @@ U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_
     return 1;
   }
   int sum = 0;
-  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos, true);
-  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos, true);
   std::vector<U32> moves;
-  for (U32 move = movegen.popMove(0); move != MOVE_NONE; move = movegen.popMove(0)) {
-    moves.push_back(move);
-  }
+  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos, true, &moves);
+  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos, true, &moves);
 
 
   for (U32 move : moves) {
@@ -170,7 +179,8 @@ BoundedEval Search::bestEvalInVector(std::vector<BoundedEval>& b_evals) {
 Search::Search():
 mt(std::make_shared<MagicTable>()),
 evaluator(mt),
-movegen(mt)
+movegen(mt),
+ttable()
 {
 }
 

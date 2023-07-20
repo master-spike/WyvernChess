@@ -5,6 +5,7 @@
 #include "types.h"
 #include "movegen.h"
 #include "evaluate.h"
+#include "transposition.h"
 #include <ctime>
 
 namespace Wyvern {
@@ -21,51 +22,66 @@ private:
   time_t time_limit;
   BoundedEval bestEvalInVector(std::vector<BoundedEval>& b_evals);
   bool checkThreeReps(Position& pos);
+  U64 node_count;
+  U64 node_count_qs;
+  U64 table_hits;
+  int current_depth;
+  int max_depth;
+  TranspositionTable ttable;
+  void printStats();
 public:
   Search();
   U32 bestmove(Position pos, double t_limit);
   template<enum Color CT>
-  BoundedEval negamax(Position& pos, int depth, int alpha, int beta,  bool iter_deep);
+  BoundedEval negamax(Position& pos, int depth, int alpha, int beta,  bool do_quiesce);
   ~Search() = default;
   U64 perft(Position &pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks);
 };
 
 template<enum Color CT> 
 BoundedEval Search::quiesce(Position pos, int alpha, int beta) {
+  if (current_depth > max_depth) max_depth = current_depth;
+  ++node_count;
+  ++node_count_qs;
   constexpr enum Color CTO = (enum Color) (CT^1);
   U64 checks = movegen.inCheck(pos);
   
-  if (checks) movegen.generateMoves<CT>(pos, true);
-  else movegen.generateMoves<CT>(pos, false);
+  std::vector<U32> moves;
+  if (checks) movegen.generateMoves<CT>(pos, true, &moves);
+  else movegen.generateMoves<CT>(pos, false, &moves);
   
   // if in check any move that avoids mate is good
   int stand_pat = (checks) ? -INT32_MAX : evaluator.evalPositional(pos);
-  std::vector<U32> moves = std::vector<U32>(0,0);
-  U32 m = movegen.popMove(0);
-  while (m != MOVE_NONE) {
-    moves.push_back(m);
-    m = movegen.popMove(0);
-  }
+
   if (moves.size() == 0) {
-    movegen.generateMoves<CT>(pos, true); // generate more moves to check for mate/stalemate
-    if (checks) return BoundedEval(BOUND_EXACT, -INT32_MAX);
-    if (movegen.popMove(0) == MOVE_NULL) return BoundedEval(BOUND_EXACT, 0); // stalemate
-    if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
+    std::vector<U32> temp;
+    movegen.generateMoves<CT>(pos, true, &temp); // generate more moves to check for mate/stalemate
+    if (checks && temp.size() == 0) return BoundedEval(BOUND_EXACT, -INT32_MAX);
+    if (temp.size() == 0) return BoundedEval(BOUND_EXACT, 0); // stalemate
     // not stalemate, no captures, return stand pat
-    return BoundedEval(BOUND_EXACT, stand_pat);
   }
   if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
   if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
+  if (moves.size() == 0) return BoundedEval(BOUND_EXACT, stand_pat);
   alpha = (alpha > stand_pat) ? alpha : stand_pat; //baseline score
   enum Bound bound = BOUND_EXACT;
+  
+  BoundedEval table_lookup = ttable.lookup(pos.getZobrist(), 0);
+  if (!(table_lookup.bound & BOUND_INVALID)) {
+    ++table_hits;
+    return table_lookup;
+  }
   // now we do captures.
   for (U32 move : moves) {
     pos.makeMove(move);
+    ++current_depth;
     BoundedEval val = -quiesce<CTO>(pos, -beta, -alpha);
+    pos.unmakeMove();
+    --current_depth;
     // prefer further mates / closer mates
     if (val.eval <= 40-INT32_MAX) val.eval++;
     if (val.eval >= INT32_MAX-40) val.eval--;
-    pos.unmakeMove();
+
     alpha = (val.eval > alpha) ? val.eval : alpha;
     stand_pat = (val.eval > stand_pat) ? val.eval : stand_pat;
     bound = (val.eval > stand_pat) ? val.bound : bound;
@@ -74,21 +90,21 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta) {
       bound = BOUND_LOWER; break;
     }
   }
+  ttable.insert(pos.getZobrist(),BoundedEval(bound, stand_pat),0);
+
+  return BoundedEval(bound, stand_pat);
 
 }
 template<enum Color CT>
-BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool iter_deep) {
+BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool do_quiesce) {
 
+  if (current_depth > max_depth) max_depth = current_depth;
+  ++node_count;
   constexpr enum Color CTO = (enum Color) (CT^1);
   // if terminal return draw, win, loss as appropriate
   // todo if
-  movegen.generateMoves<CT>(pos, true);
-  std::vector<U32> moves = std::vector<U32>(0,0);
-  U32 m = movegen.popMove(0);
-  while (m != MOVE_NONE) {
-    moves.push_back(m);
-    m = movegen.popMove(0);
-  }
+  std::vector<U32> moves;
+  movegen.generateMoves<CT>(pos, true, &moves);
   if (moves.size() == 0) {
     if (movegen.inCheck(pos)) return BoundedEval(BOUND_EXACT,-INT32_MAX);
     return BoundedEval(BOUND_EXACT, 0);
@@ -96,7 +112,8 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
   if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
   if (depth == 0) {
-    return BoundedEval(BOUND_EXACT,evaluator.evalPositional(pos));
+    if (!do_quiesce) return BoundedEval(BOUND_EXACT, evaluator.evalPositional(pos));
+    return quiesce<CT>(pos, alpha, beta);
   }
   std::vector<BoundedEval> b_evals(moves.size());
 
@@ -109,6 +126,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
     int i = 0;
     for (U32 move : moves) {
       pos.makeMove(move);
+      current_depth++;
       int extension= 0;
       if ((move & YES_CAPTURE) || movegen.inCheck(pos)) extension = 1;
 
@@ -122,13 +140,14 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
         lmr = true;
         extension = -1;
       } 
-      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, iter_deep);
+      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce);
       if (val.eval >= t_alpha && val.bound != BOUND_UPPER && lmr) {
         // if not a bad looking move re-search at unreduced depth for late move reductions
         extension++; 
-        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, iter_deep);
+        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce);
       } 
       pos.unmakeMove();
+      --current_depth;
       if (val.eval > best_so_far.eval && bsf_depth <= id_d + extension) {
         best_so_far = val;
         bsf_depth = id_d + extension;
