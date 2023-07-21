@@ -6,7 +6,7 @@ namespace Wyvern {
 template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool);
 template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool);
 
-U32 Search::bestmove(Position pos, double t_limit) {
+U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int& out_eval) {
   current_depth = 0;
   max_depth = 0;
   node_count = 0;
@@ -20,41 +20,79 @@ U32 Search::bestmove(Position pos, double t_limit) {
   else movegen.generateMoves<COLOR_WHITE>(pos, true, &moves);
 
   if (moves.size() == 0) return MOVE_NONE;
-  if (moves.size() == 1) return moves.back();
+  if (moves.size() == 1) {std::cout << "single legal move" << std::endl ; return moves.back(); }
 
   std::vector<BoundedEval> b_evals(moves.size());
   U32 best_move = MOVE_NONE;
   int best_eval = -INT32_MAX;
 
-  for (int id_d = 0; difftime(time(nullptr), init_time) < time_limit; id_d++) {
-    int t_alpha = -INT32_MAX; // temporary value of alpha for ids
+  constexpr int window_margin = 25;
+
+  int window_low, window_high;
+
+  window_low = (player_turn == COLOR_WHITE) ? quiesce<COLOR_WHITE>(pos, -INT32_MAX, INT32_MAX, qs_depth_hardlimit).eval - window_margin
+                                            : quiesce<COLOR_BLACK>(pos, -INT32_MAX, INT32_MAX, qs_depth_hardlimit).eval - window_margin;
+  window_high = window_low + 2 * window_margin;
+
+  int wm_counter = 0;
+  for (int id_d = 0; difftime(time(nullptr), init_time) < time_limit && id_d < max_basic_depth; id_d++) {
+    int t_alpha = window_low; // temporary value of alpha for ids
     int i = 0;
     for (U32 move : moves) {
       pos.makeMove(move);
       BoundedEval val;
-      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true);
-      else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true);
+      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -window_high, -t_alpha, true);
+      else val = -negamax<COLOR_WHITE>(pos, id_d, -window_high, -t_alpha, true);
       pos.unmakeMove();
       if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
         break;
       }
       b_evals[i]=val; i++;
-      if (val.eval > best_eval && val.bound != BOUND_LOWER) {
+      if (val.eval > best_eval && val.bound == BOUND_EXACT) {
         best_eval = val.eval; best_move = move;
       } 
       if (val.eval > t_alpha) t_alpha = val.eval;
-      // no fail, as we want to at least seach all nodes here for move ordering.
+      if (t_alpha >= window_high) break;
     }
-    if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
+    if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 2) {
       break;
     }
     sortMoves(moves, b_evals);
     BoundedEval ref_beval = bestEvalInVector(b_evals);
+    if (t_alpha >= window_high || ref_beval.eval < t_alpha) {
+      id_d--; wm_counter++; // prepare re-search
+      int newmargin = window_margin << wm_counter;
+      if (t_alpha >= window_high) {
+        // failed high, so we increase upper window limit
+        if (window_margin >= 2000 || wm_counter > 5 || ref_beval.eval >= 2000) window_high = INT32_MAX;
+        else window_high = ref_beval.eval + newmargin;
+      }
+      else {
+        // failed low, so we decrease lower window limit
+        if (window_margin >= 2000 || wm_counter > 5 || ref_beval.eval <= -2000) window_low = -INT32_MAX;
+        else window_low = ref_beval.eval - newmargin;
+      }
+      std::cout << "Re-search at depth " << (id_d+1) << " bounds [" << window_low << "," << window_high <<"]\n";
+    }
+    else {
+      std::cout << "Aspirational search depth " << id_d << " bounds [" << window_low << "," << window_high
+                <<"] evaluation: " << ref_beval.eval << "\n";
+      wm_counter = 0; // reset window size - care taken to avoid overflow
+      window_low = ref_beval.eval;
+      if (window_low - window_margin < window_low) window_low -= window_margin;
+      else window_low = -INT32_MAX;
+      window_high = ref_beval.eval;
+      if (window_high + window_margin > window_high) window_high += window_margin;
+      else window_high = INT32_MAX;
+    }
+    // update best move
     for (size_t i = 0; i < b_evals.size(); ++i) {
+      best_eval = ref_beval.eval;
       if (b_evals[i] == ref_beval) best_move = moves[i];
     }
   }
   printStats();
+  out_eval = best_eval;
   return (best_move);
 
 }

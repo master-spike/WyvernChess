@@ -37,7 +37,7 @@ MagicTable::MagicTable()
     knight_table[i] |= (filell | filerr) & (rankt | rankb);
 
     U64 pp_files = files[i % 8];
-    pp_files |= (pp_files << 1 & ~FILE_H) | (pp_files >> 1 & ~FILE_A);
+    pp_files |= (pp_files << 1 & ~FILE_A) | (pp_files >> 1 & ~FILE_H);
     U64 pp_white = pp_files;
     U64 pp_black = pp_files;
     for (int j = 0; j <= i/8; j++) {

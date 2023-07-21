@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#define MAX_INT(x,y) (x > y) ? x : y;
+#define MAX_INT(x,y) (x > y) ? x : y
 
 U64 rand64();
 

@@ -11,9 +11,12 @@ TranspositionTable::~TranspositionTable(){
 }
 
 BoundedEval TranspositionTable::lookup(U64 key, int depth) {
-  Entry* tgt = table + (key & (size - 1));
-  if (tgt->zobrist_key != key || depth > tgt->depth) return BoundedEval(BOUND_INVALID, 0);
-  return tgt->value;
+  Entry* tgt_deep = table + (key & (size - 1) & ~1);
+  Entry* tgt_shallow = table + ((key & (size - 1)) | 1);
+  if (tgt_shallow->zobrist_key == key && depth <= tgt_shallow->depth) return tgt_shallow->value;
+  if (tgt_deep->zobrist_key == key && depth <= tgt_deep->depth) return tgt_deep->value;
+  return BoundedEval(BOUND_INVALID, 0);
+
 }
 
 BoundedEval strongerBound(BoundedEval v1, BoundedEval v2) {
@@ -26,14 +29,15 @@ BoundedEval strongerBound(BoundedEval v1, BoundedEval v2) {
 }
 
 void TranspositionTable::insert(U64 key, BoundedEval value, int depth) {
-  Entry* tgt = table + (key & (size - 1));
-  if (tgt->zobrist_key == key) {
-    if (tgt->depth > depth) return;
-    if (tgt->depth == depth) {
-      tgt->value = strongerBound(tgt->value, value);
+  Entry* tgt_deep = table + (key & (size - 1) & ~1);
+  Entry* tgt_shallow = table + ((key & (size - 1)) | 1);
+  if (tgt_deep->zobrist_key == key) {
+    if (tgt_deep->depth < depth) tgt_deep->value = value;
+    if (tgt_deep->depth == depth) {
+      tgt_deep->value = strongerBound(tgt_deep->value, value);
     }
-  } 
-  (*tgt) = Entry(key, value, depth);
+  }
+  (*tgt_shallow) = Entry(key, value, depth);
 }
 
 }

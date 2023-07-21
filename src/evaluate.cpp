@@ -80,9 +80,6 @@ constexpr int king_end_game[64] = {
 -50,-40,-30,-20,-20,-30,-40,-50
 };
 
-constexpr int endgame_material_limit = 20;
-constexpr int midgame_material_limit = 46;
-
 constexpr int passed_pawn_value = 50;
 
 constexpr int queen_mobility_factor = 3;
@@ -108,13 +105,23 @@ int Evaluator::evalMaterialOnly(Position& pos){
   return total;
 }
 
+int Evaluator::totalMaterial(Position& pos) {
+  U64* pcs = pos.getPieces();
+  int total_material = 0;
+  total_material += __builtin_popcountll(pcs[PAWN-1]);
+  total_material += 3*__builtin_popcountll(pcs[KNIGHT-1] | pcs[BISHOP-1]);
+  total_material += 5*__builtin_popcountll(pcs[ROOK-1]);
+  total_material += 9*__builtin_popcountll(pcs[QUEEN-1]);
+  return total_material;
+}
+
 int Evaluator::evalPositional(Position& pos) {
   enum Color player = pos.getToMove();
   enum Color opponent = (player == COLOR_BLACK) ? COLOR_WHITE : COLOR_BLACK;
   U64* pcols = pos.getPieceColors();
   U64* pcs = pos.getPieces();
   int total = 0;
-  int total_material = 0;
+  int total_material = totalMaterial(pos);
   total_material += __builtin_popcountll(pcs[PAWN-1]);
   total_material += 3*__builtin_popcountll(pcs[KNIGHT-1] | pcs[BISHOP-1]);
   total_material += 5*__builtin_popcountll(pcs[ROOK-1]);
@@ -208,8 +215,65 @@ int Evaluator::evalPositional(Position& pos) {
   return total;
 }
 
+
+
 Evaluator::Evaluator(std::shared_ptr<MagicTable> _mt) {
   mt = std::shared_ptr<MagicTable>(_mt);
+}
+
+
+U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPiece) {
+  for (int p = 0; p < 6; p++) {
+    U64 set = side_pcs & attadef & pieceBB[p];
+    if (set) {
+      aPiece = (enum PieceType) (p+1);
+      return set & (set-1);
+    }
+  }
+  return 0;
+}
+
+// based on https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
+int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side)
+{
+  enum PieceType aPiece = piece;
+  U64* pcs = pos.getPieces();
+  U64* pcols = pos.getPieceColors();
+  U64 blockers = pcs[0] | pcs[1] | pcs[2] | pcs[3] | pcs[4] | pcs[5];
+  int gain[32];
+  U64 fromset = 1ULL << frsq;
+  U64 may_xray_diag = pcs[0] | pcs[2] |  pcs[4]; // pawns, bishops, queens
+  U64 may_xray_orth = pcs[3] | pcs[4]; // rooks, queens
+  U64 attadef = (mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]))
+              | (mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]))
+              | (mt->knight_table[tosq] & pcs[1]) | (mt->king_table[tosq] & pcs[5])
+              | (((pcs[0] & pcols[1]) >> 7 & ~FILE_A) | ((pcs[0] & pcols[1]) >> 9 & ~FILE_H))
+              | (((pcs[0] & pcols[0]) << 7 & ~FILE_H) | ((pcs[0] & pcols[0]) << 9 & ~FILE_A));
+  
+  U64 ad_xray = (mt->bishop_magics[tosq].compute(blockers & ~attadef) & (pcs[2] | pcs[4]))
+              | (mt->rook_magics[tosq].compute(blockers & ~attadef) & (pcs[3] | pcs[4]));
+  ad_xray &= ~attadef;
+
+  int d = 0;
+  gain[d] = pvals[(int)target-1];
+  while(fromset) {
+    d++;
+    side ^= 1;
+    gain[d] = pvals[aPiece - 1] - gain[d-1];
+    if (MAX_INT(gain[d], -gain[d-1]) < 0) break;
+    attadef ^= fromset;
+    blockers ^= fromset;
+    if (fromset & may_xray_orth)
+      attadef |= mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]);
+    if (fromset & may_xray_diag)
+      attadef |= mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]);
+    fromset = see_lvp(attadef, pcols[side], pcs, aPiece);
+  }
+  while(--d) {
+    gain[d-1] = -MAX_INT(-gain[d-1], gain[d]);
+  }
+
+  return gain[0];
 }
 
 }
