@@ -59,5 +59,3 @@ int Evaluator::seeCapture(Position& pos, U32 capture) {
 
 
 #endif
-
-
