@@ -222,7 +222,7 @@ Evaluator::Evaluator(std::shared_ptr<MagicTable> _mt) {
 }
 
 
-U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPiece) {
+static U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPiece) {
   for (int p = 0; p < 6; p++) {
     U64 set = side_pcs & attadef & pieceBB[p];
     if (set) {
