@@ -2,7 +2,7 @@
 #define H_GUARD_TRANSPOSITION
 
 #include "types.h"
-#define TRANSPOSITION_TABLE_DEFAULT_BITS 16; // ~1.5MB
+#define TRANSPOSITION_TABLE_DEFAULT_BITS 22; // ~100MB
 
 namespace Wyvern {
 

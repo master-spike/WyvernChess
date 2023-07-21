@@ -73,10 +73,11 @@ int main() {
         Wyvern::Search my_search;
         pos.printPretty();
         int result;
-        U32 chosen_move = my_search.bestmove(pos, 1000, 7, result);
+        U32 chosen_move = my_search.bestmove(pos, 15, 7, result);
         std::cout << std::dec << "Static evaluation "
                   << (-2 * pos.getToMove() + 1) * evaluator.evalPositional(pos)
-                  << " | Dynamic evaluation " << result << std::endl << std::endl;
+                  << " | Dynamic evaluation " << (-2 * pos.getToMove() + 1) * result
+                  << std::endl << std::endl;
         if (chosen_move == Wyvern::MOVE_NONE) break;
         pos.makeMove(chosen_move);
         while(difftime(time(nullptr), t0) < 0.5) {

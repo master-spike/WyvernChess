@@ -223,7 +223,7 @@ void Position::printPretty() {
   U32 last_move = (move_history.empty()) ? MOVE_NONE : move_history.back();
   int isq = (last_move) ? last_move&63 : 64;
   int tsq = (last_move) ? (last_move >> 6) & 63 : 64;
-  std::cout << "+---+---+---+---+---+---+---+---+" << std::endl;
+  std::cout << "+---+---+---+---+---+---+---+---+ " << std::endl;
   for (int i = 7; i >= 0; --i) {
     std::cout << '|';
     for (int j = 0; j < 8; j++) {
@@ -244,7 +244,18 @@ void Position::printPretty() {
         piece = piece_chars[pieceAtSquare(1ULL << p)] + ('a' - 'A');
       std::cout << wsl << piece << wsr <<'|';
     }
-    std::cout << std::endl << "+---+---+---+---+---+---+---+---+" << std::endl;
+    std::cout << "  ";
+    if (i == 7) {
+      std::cout << ((tomove) ? "Black" : "White") << " to move";
+    }
+    if (i <= 1) {
+      for (int pt = 4; pt >= 0; pt--) {
+        for (int j = 0; j < __builtin_popcountll(pieces[pt] & piece_colors[i]); ++j) {
+          std::cout << (char) (piece_chars[pt+1] + ('a' - 'A')*i);
+        }
+      }
+    }
+    std::cout << std::endl << "+---+---+---+---+---+---+---+---+ " << std::endl;
   }
 
 }

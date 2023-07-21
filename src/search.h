@@ -68,7 +68,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
   if (moves.size() == 0) return BoundedEval(BOUND_EXACT, stand_pat);
   alpha = (alpha > stand_pat) ? alpha : stand_pat; //baseline score
-  enum Bound bound = BOUND_EXACT;
+  enum Bound bound = (alpha > stand_pat) ? BOUND_UPPER : BOUND_EXACT;
   
   if (depth_hard == 0) {
     return BoundedEval(BOUND_UPPER, stand_pat);
@@ -99,13 +99,17 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   for (U32 move : moves) {
     if (!checks && (move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO)) {
       // skip bad captures - delta pruning outside the endgame, or <0 any time
-      int seeval = evaluator.seeCapture<CT>(pos, move);
-      if (seeval < 0) continue;
-      if (evaluator.totalMaterial(pos) > endgame_material_limit) {
-        int delta = seeval + stand_pat_initial + 200;
-        if (delta < alpha) continue;
+      pos.makeMove(move);
+      U64 move_is_check = movegen.inCheck(pos);
+      pos.unmakeMove();
+      if (!move_is_check) {
+        int seeval = evaluator.seeCapture<CT>(pos, move);
+        if (seeval < 0) continue;
+        if (evaluator.totalMaterial(pos) > endgame_material_limit) {
+          int delta = seeval + stand_pat_initial + 200;
+          if (delta < alpha) continue;
+        }
       }
-      
     }
     pos.makeMove(move);
     ++current_depth;
@@ -118,7 +122,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
 
     alpha = (val.eval > alpha) ? val.eval : alpha;
     stand_pat = (val.eval > stand_pat) ? val.eval : stand_pat;
-    bound = (val.eval > stand_pat) ? val.bound : bound;
+    if (val.eval >= alpha) bound = BOUND_EXACT;
     if (alpha >= beta) {
       //std::cout << "cutoff" << std::endl;
       bound = BOUND_LOWER; break;
@@ -175,20 +179,22 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
     int t_alpha = alpha; // temporary value of alpha for ids
     int i = 0;
     for (U32 move : moves) {
-      pos.makeMove(move);
+
       current_depth++;
       int extension = 0;
 
-      // extend search if in check
+      // extend search if move is check
       if (movegen.inCheck(pos)) extension = 1;
-
+      pos.makeMove(move);
+      // or if giving check
+      if (movegen.inCheck(pos)) extension = 1;
       //passed pawn push
       //U64 enemy_pawns = pos.getPieceColors()[CT^1] & pos.getPieces()[PAWN-1];
       //if ((move >> 20 & 7) == PAWN && !(enemy_pawns & mt->passed_pawns[64*CT + (move&63)])) extension = 1;
       
       bool lmr = false;
       
-      // do not do lmr on captures, check evasions, shallow depth searches, early moves.
+      // do not do lmr on captures, checks, check evasions, shallow depth searches, early moves.
       if (!extension && !(move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d >= 2) {
         lmr = true;
         extension = -1;
@@ -214,8 +220,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
         
       b_evals[i++]=val;
       if (difftime(time(nullptr), init_time) >= time_limit) {
-        BoundedEval r_eval = bestEvalInVector(b_evals);
-        r_eval.bound = BOUND_LOWER; return r_eval;
+        return best_so_far;
       }
       if (val.eval > t_alpha) t_alpha = val.eval;
       // no fail if id_d < depth - 1, as we want to at least seach all nodes here for move ordering.
@@ -225,7 +230,8 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
     }
     sortMoves(moves, b_evals);
   }
-
+  if (best_so_far.eval < alpha) best_so_far.bound = BOUND_UPPER;
+  else best_so_far.bound = BOUND_EXACT;
   return best_so_far;
 }
 

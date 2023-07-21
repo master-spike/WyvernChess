@@ -59,18 +59,24 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int& out
     }
     sortMoves(moves, b_evals);
     BoundedEval ref_beval = bestEvalInVector(b_evals);
+    // update best move
+    for (size_t i = 0; i < b_evals.size(); ++i) {
+      best_eval = ref_beval.eval;
+      if (b_evals[i] == ref_beval) best_move = moves[i];
+    }
+    if (best_eval >= INT32_MAX-100) break; // go for forced mate if available
     if (t_alpha >= window_high || ref_beval.eval < t_alpha) {
       id_d--; wm_counter++; // prepare re-search
-      int newmargin = window_margin << wm_counter;
+      int newmargin = window_margin << (wm_counter * 2); // widen by factor of 4
       if (t_alpha >= window_high) {
         // failed high, so we increase upper window limit
-        if (window_margin >= 2000 || wm_counter > 5 || ref_beval.eval >= 2000) window_high = INT32_MAX;
-        else window_high = ref_beval.eval + newmargin;
+        if (newmargin >= 4000 || wm_counter > 5 || t_alpha >= 4000) window_high = INT32_MAX;
+        else window_high = t_alpha + newmargin;
       }
       else {
         // failed low, so we decrease lower window limit
-        if (window_margin >= 2000 || wm_counter > 5 || ref_beval.eval <= -2000) window_low = -INT32_MAX;
-        else window_low = ref_beval.eval - newmargin;
+        if (newmargin >= 4000 || wm_counter > 5 || window_low <= -4000) window_low = -INT32_MAX;
+        else window_low = window_low - newmargin;
       }
       std::cout << "Re-search at depth " << (id_d+1) << " bounds [" << window_low << "," << window_high <<"]\n";
     }
@@ -84,11 +90,6 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int& out
       window_high = ref_beval.eval;
       if (window_high + window_margin > window_high) window_high += window_margin;
       else window_high = INT32_MAX;
-    }
-    // update best move
-    for (size_t i = 0; i < b_evals.size(); ++i) {
-      best_eval = ref_beval.eval;
-      if (b_evals[i] == ref_beval) best_move = moves[i];
     }
   }
   printStats();
