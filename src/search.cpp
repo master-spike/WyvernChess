@@ -3,10 +3,10 @@
 
 namespace Wyvern {
 
-template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool);
-template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool);
+template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool, int);
+template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool, int);
 
-U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int& out_eval) {
+U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_depth_hard, int& out_eval) {
   current_depth = 0;
   max_depth = 0;
   node_count = 0;
@@ -26,71 +26,41 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int& out
   U32 best_move = MOVE_NONE;
   int best_eval = -INT32_MAX;
 
-  constexpr int window_margin = 25;
-
-  int window_low, window_high;
-
-  window_low = (player_turn == COLOR_WHITE) ? quiesce<COLOR_WHITE>(pos, -INT32_MAX, INT32_MAX, qs_depth_hardlimit).eval - window_margin
-                                            : quiesce<COLOR_BLACK>(pos, -INT32_MAX, INT32_MAX, qs_depth_hardlimit).eval - window_margin;
-  window_high = window_low + 2 * window_margin;
-
-  int wm_counter = 0;
-  for (int id_d = 0; difftime(time(nullptr), init_time) < time_limit && id_d < max_basic_depth; id_d++) {
-    int t_alpha = window_low; // temporary value of alpha for ids
+  for (int id_d = 0; (difftime(time(nullptr), init_time) < time_limit && id_d < max_basic_depth) || (best_move == MOVE_NONE); id_d++) {
+    int t_alpha = -INT32_MAX; // temporary value of alpha for ids
     int i = 0;
+    int best_this_iteration = -INT32_MAX;
     for (U32 move : moves) {
       pos.makeMove(move);
       BoundedEval val;
-      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -window_high, -t_alpha, true);
-      else val = -negamax<COLOR_WHITE>(pos, id_d, -window_high, -t_alpha, true);
+      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true, (id_d+1)*2);
+      else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true, (id_d+1)*2);
       pos.unmakeMove();
-      if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 1) {
+
+      b_evals[i]=val; i++;
+      if (val.eval > best_this_iteration && val.bound != BOUND_UPPER) best_this_iteration = val.eval;
+      if (val.eval > t_alpha && val.bound != BOUND_UPPER) t_alpha = val.eval;
+      if (difftime(time(nullptr), init_time) >= time_limit && best_move != MOVE_NONE) {
         break;
       }
-      b_evals[i]=val; i++;
-      if (val.eval > best_eval && val.bound == BOUND_EXACT) {
-        best_eval = val.eval; best_move = move;
-      } 
-      if (val.eval > t_alpha) t_alpha = val.eval;
-      if (t_alpha >= window_high) break;
-    }
-    if (difftime(time(nullptr), init_time) >= time_limit && id_d >= 2) {
-      break;
     }
     sortMoves(moves, b_evals);
     BoundedEval ref_beval = bestEvalInVector(b_evals);
-    // update best move
-    for (size_t i = 0; i < b_evals.size(); ++i) {
+
+
+    if (ref_beval.eval >= INT32_MAX-100) {
       best_eval = ref_beval.eval;
+      for (size_t i = 0; i < b_evals.size(); ++i) {
+        if (b_evals[i] == ref_beval) best_move = moves[i];
+      }
+      break; // go for forced mate if available
+    } 
+    best_eval = ref_beval.eval;
+    for (size_t i = 0; i < b_evals.size(); ++i) {
       if (b_evals[i] == ref_beval) best_move = moves[i];
     }
-    if (best_eval >= INT32_MAX-100) break; // go for forced mate if available
-    if (t_alpha >= window_high || ref_beval.eval < t_alpha) {
-      id_d--; wm_counter++; // prepare re-search
-      int newmargin = window_margin << (wm_counter * 2); // widen by factor of 4
-      if (t_alpha >= window_high) {
-        // failed high, so we increase upper window limit
-        if (newmargin >= 4000 || wm_counter > 5 || t_alpha >= 4000) window_high = INT32_MAX;
-        else window_high = t_alpha + newmargin;
-      }
-      else {
-        // failed low, so we decrease lower window limit
-        if (newmargin >= 4000 || wm_counter > 5 || window_low <= -4000) window_low = -INT32_MAX;
-        else window_low = window_low - newmargin;
-      }
-      std::cout << "Re-search at depth " << (id_d+1) << " bounds [" << window_low << "," << window_high <<"]\n";
-    }
-    else {
-      std::cout << "Aspirational search depth " << id_d << " bounds [" << window_low << "," << window_high
-                <<"] evaluation: " << ref_beval.eval << "\n";
-      wm_counter = 0; // reset window size - care taken to avoid overflow
-      window_low = ref_beval.eval;
-      if (window_low - window_margin < window_low) window_low -= window_margin;
-      else window_low = -INT32_MAX;
-      window_high = ref_beval.eval;
-      if (window_high + window_margin > window_high) window_high += window_margin;
-      else window_high = INT32_MAX;
-    }
+    std::cout << "IDS value @depth=" << id_d << " == " << -(2*player_turn-1)*best_eval << ": move="; 
+    printSq(best_move & 63); printSq((best_move >> 6) & 63); std::cout << "\n";
   }
   printStats();
   out_eval = best_eval;
@@ -107,7 +77,7 @@ void Search::printStats() {
 }
 
 
-U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks) {
+U64 Search::perft(Position& pos, int depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks) {
 
   if (pos.checkValidity()) {
     pos.printPretty();
@@ -155,7 +125,7 @@ U64 Search::perft(Position& pos, int depth, int max_depth, int* n_capts, int* n_
       if ((move & MOVE_SPECIAL) == CASTLES) ++(*n_castles);
     }
     pos.makeMove(move);
-    sum += perft(pos, depth-1, max_depth, n_capts, n_enpass, n_promo, n_castles, checks);
+    sum += perft(pos, depth-1, n_capts, n_enpass, n_promo, n_castles, checks);
     pos.unmakeMove();
 
   }

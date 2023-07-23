@@ -1,5 +1,5 @@
 CC = g++
-FLAGS = -Wall -Werror -std=c++2a -O3 -g
+FLAGS = -Wall -Werror -std=c++2a -O3
 
 srcdir = src
 

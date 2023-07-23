@@ -33,11 +33,11 @@ private:
   void printStats();
 public:
   Search();
-  U32 bestmove(Position pos, double t_limit, int max_basic_depth, int& out_eval);
+  U32 bestmove(Position pos, double t_limit, int max_basic_depth, int max_depth_hard, int& out_eval);
   template<enum Color CT>
-  BoundedEval negamax(Position& pos, int depth, int alpha, int beta,  bool do_quiesce);
+  BoundedEval negamax(Position& pos, int depth, int alpha, int beta,  bool do_quiesce, int d_max);
   ~Search() = default;
-  U64 perft(Position &pos, int depth, int max_depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks);
+  U64 perft(Position &pos, int depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles, int* checks);
 };
 
 template<enum Color CT> 
@@ -97,6 +97,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
 
   // now we do captures.
   for (U32 move : moves) {
+    
     if (!checks && (move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO)) {
       // skip bad captures - delta pruning outside the endgame, or <0 any time
       pos.makeMove(move);
@@ -111,6 +112,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
         }
       }
     }
+    
     pos.makeMove(move);
     ++current_depth;
     BoundedEval val = -quiesce<CTO>(pos, -beta, -alpha, depth_hard-1);
@@ -134,7 +136,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
 
 }
 template<enum Color CT>
-BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool do_quiesce) {
+BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool do_quiesce, int d_max) {
 
   if (current_depth > max_depth) max_depth = current_depth;
   ++node_count;
@@ -149,7 +151,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   }
   if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
   if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
-  if (depth == 0) {
+  if (depth == 0 || d_max == 0) {
     if (!do_quiesce) return BoundedEval(BOUND_EXACT, evaluator.evalPositional(pos));
     return quiesce<CT>(pos, alpha, beta, qs_depth_hardlimit);
   }
@@ -183,28 +185,32 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       current_depth++;
       int extension = 0;
 
+      if (move & YES_CAPTURE) {
+        // check see for good capture
+        if (evaluator.seeCapture<CT>(pos, move) >= 0) extension = 1;
+      }
       // extend search if move is check
-      if (movegen.inCheck(pos)) extension = 1;
+      if (!(extension) && movegen.inCheck(pos)) extension = 1;
       pos.makeMove(move);
       // or if giving check
-      if (movegen.inCheck(pos)) extension = 1;
+      if (!(extension) && movegen.inCheck(pos)) extension = 1;
       //passed pawn push
       //U64 enemy_pawns = pos.getPieceColors()[CT^1] & pos.getPieces()[PAWN-1];
       //if ((move >> 20 & 7) == PAWN && !(enemy_pawns & mt->passed_pawns[64*CT + (move&63)])) extension = 1;
       
       bool lmr = false;
       
-      // do not do lmr on captures, checks, check evasions, shallow depth searches, early moves.
-      if (!extension && !(move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d >= 2) {
+      // do not do lmr on good captures, checks, check evasions, shallow depth searches, early moves.
+      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d > 2) {
         lmr = true;
         extension = -1;
       }
       
-      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce);
+      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);
       if (val.eval >= t_alpha && val.bound != BOUND_UPPER && lmr) {
         // if not a bad looking move re-search at unreduced depth for late move reductions
         extension++; 
-        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce);
+        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);
       } 
       pos.unmakeMove();
       --current_depth;
@@ -225,6 +231,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       if (val.eval > t_alpha) t_alpha = val.eval;
       // no fail if id_d < depth - 1, as we want to at least seach all nodes here for move ordering.
       if (t_alpha >= beta) {
+        best_so_far.bound = BOUND_LOWER;
         break; // either continue ids or
       }
     }
@@ -232,6 +239,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   }
   if (best_so_far.eval < alpha) best_so_far.bound = BOUND_UPPER;
   else best_so_far.bound = BOUND_EXACT;
+  ttable.insert(pos.getZobrist(),best_so_far,depth);
   return best_so_far;
 }
 

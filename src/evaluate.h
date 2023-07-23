@@ -15,7 +15,7 @@ constexpr int pval_bishop = 330;
 constexpr int pval_rook = 500;
 constexpr int pval_queen = 900;
 
-constexpr int pvals[5] = {pval_pawn,pval_knight,pval_bishop,pval_rook,pval_queen};
+constexpr int pvals[6] = {pval_pawn,pval_knight,pval_bishop,pval_rook,pval_queen, 20000}; // king has absurd value for see
 
 constexpr int endgame_material_limit = 20;
 constexpr int midgame_material_limit = 46;

@@ -85,6 +85,7 @@ constexpr int passed_pawn_value = 50;
 constexpr int queen_mobility_factor = 3;
 constexpr int bishop_mobility_factor = 4;
 constexpr int rook_mobility_factor = 4;
+constexpr int knight_mobility_factor = 4;
 
 int psqvTableLookup(enum Color ct, int p, const int* table) {
   if (ct == COLOR_WHITE) return table[p];
@@ -154,35 +155,41 @@ int Evaluator::evalPositional(Position& pos) {
   }
   
   for (U64 knights = pcs[KNIGHT-1] & pcols[player] ; knights ; knights&=knights-1) {
-    total += psqvTableLookup(player,__builtin_ctzll(knights), place_value_knight);
+    int p =__builtin_ctzll(knights);
+    total += psqvTableLookup(player, p, place_value_knight);
+    U64 targets = mt->knight_table[p] & ~opp_pawn_cs;
+    total += (__builtin_popcountll(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 knights = pcs[KNIGHT-1] & pcols[opponent] ; knights ; knights&=knights-1) {
-    total -= psqvTableLookup(opponent,__builtin_ctzll(knights), place_value_knight);
+    int p = __builtin_ctzll(knights);
+    total -= psqvTableLookup(opponent, p, place_value_knight);
+    U64 targets = mt->knight_table[p] & ~our_pawn_cs;
+    total -= (__builtin_popcountll(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
   for (U64 bishops = pcs[BISHOP-1] & pcols[player] ; bishops ; bishops&=bishops-1) {
     int p = __builtin_ctzll(bishops);
     total += psqvTableLookup(player,p, place_value_bishop);
-    U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~bb_blockers & ~opp_pawn_cs;
+    U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~opp_pawn_cs;
     total += (__builtin_popcountll(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 bishops = pcs[BISHOP-1] & pcols[opponent] ; bishops ; bishops&=bishops-1) {
     int p = __builtin_ctzll(bishops);
     total -= psqvTableLookup(opponent,p, place_value_bishop);
-    U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~bb_blockers & ~our_pawn_cs;
+    U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~our_pawn_cs;
     total -= (__builtin_popcountll(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
   for (U64 rooks = pcs[ROOK-1] & pcols[player] ; rooks ; rooks&=rooks-1) {
     int p = __builtin_ctzll(rooks);
     total += psqvTableLookup(player,p, place_value_rook);
-    U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~bb_blockers & ~opp_pawn_cs;
+    U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~opp_pawn_cs;
     total += (__builtin_popcountll(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 rooks = pcs[ROOK-1] & pcols[opponent] ; rooks ; rooks&=rooks-1) {
     int p = __builtin_ctzll(rooks);
     total -= psqvTableLookup(opponent,p, place_value_rook);
-    U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~bb_blockers & ~our_pawn_cs;
+    U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~our_pawn_cs;
     total -= (__builtin_popcountll(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
@@ -190,14 +197,14 @@ int Evaluator::evalPositional(Position& pos) {
     int p = __builtin_ctzll(queens);
     total += psqvTableLookup(player,p, place_value_rook);
     U64 targets = (mt->rook_magics[p].compute(bb_blockers) |
-                   mt->bishop_magics[p].compute(bb_blockers)) & ~bb_blockers & ~opp_pawn_cs;
+                   mt->bishop_magics[p].compute(bb_blockers)) & ~opp_pawn_cs;
     total += (__builtin_popcountll(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 queens = pcs[QUEEN-1] & pcols[opponent] ; queens ; queens&=queens-1) {
     int p = __builtin_ctzll(queens);
     total -= psqvTableLookup(opponent,p, place_value_rook);
     U64 targets = (mt->rook_magics[p].compute(bb_blockers) |
-                   mt->bishop_magics[p].compute(bb_blockers)) & ~bb_blockers & ~our_pawn_cs;
+                   mt->bishop_magics[p].compute(bb_blockers)) & ~our_pawn_cs;
     total -= (__builtin_popcountll(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
@@ -227,7 +234,7 @@ static U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPie
     U64 set = side_pcs & attadef & pieceBB[p];
     if (set) {
       aPiece = (enum PieceType) (p+1);
-      return set & (set-1);
+      return set & (-set);
     }
   }
   return 0;
@@ -236,37 +243,44 @@ static U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPie
 // based on https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
 int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side)
 {
+  side &= 1;
   enum PieceType aPiece = piece;
   U64* pcs = pos.getPieces();
   U64* pcols = pos.getPieceColors();
-  U64 blockers = pcs[0] | pcs[1] | pcs[2] | pcs[3] | pcs[4] | pcs[5];
+  U64 blockers = pcols[0] | pcols[1];
   int gain[32];
   U64 fromset = 1ULL << frsq;
+  U64 to_bb = 1ULL << tosq;
   U64 may_xray_diag = pcs[0] | pcs[2] |  pcs[4]; // pawns, bishops, queens
   U64 may_xray_orth = pcs[3] | pcs[4]; // rooks, queens
   U64 attadef = (mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]))
               | (mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]))
               | (mt->knight_table[tosq] & pcs[1]) | (mt->king_table[tosq] & pcs[5])
-              | (((pcs[0] & pcols[1]) >> 7 & ~FILE_A) | ((pcs[0] & pcols[1]) >> 9 & ~FILE_H))
-              | (((pcs[0] & pcols[0]) << 7 & ~FILE_H) | ((pcs[0] & pcols[0]) << 9 & ~FILE_A));
+              | ((pcs[0] & pcols[0]) & ((to_bb >> 7 & ~FILE_A)| (to_bb >> 9 & ~FILE_H)))
+              | ((pcs[0] & pcols[1]) & ((to_bb << 7 & ~FILE_H)| (to_bb << 9 & ~FILE_A)));
   
   U64 ad_xray = (mt->bishop_magics[tosq].compute(blockers & ~attadef) & (pcs[2] | pcs[4]))
               | (mt->rook_magics[tosq].compute(blockers & ~attadef) & (pcs[3] | pcs[4]));
   ad_xray &= ~attadef;
-
   int d = 0;
   gain[d] = pvals[(int)target-1];
   while(fromset) {
     d++;
     side ^= 1;
-    gain[d] = pvals[aPiece - 1] - gain[d-1];
+    // gain is the current value of the exchange for side
+    gain[d] = pvals[aPiece-1] - gain[d-1];
+    // if the current value for the player is <0 and the value for the previous player <0 break
     if (MAX_INT(gain[d], -gain[d-1]) < 0) break;
     attadef ^= fromset;
     blockers ^= fromset;
-    if (fromset & may_xray_orth)
-      attadef |= mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]);
-    if (fromset & may_xray_diag)
-      attadef |= mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]);
+    if (fromset & may_xray_orth) {
+      attadef |= mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]) & may_xray_orth;
+      may_xray_orth &= ~attadef;
+    }
+    if (fromset & may_xray_diag) {
+      attadef |= mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]) & may_xray_diag;
+      may_xray_diag &= ~attadef;
+    }
     fromset = see_lvp(attadef, pcols[side], pcs, aPiece);
   }
   while(--d) {

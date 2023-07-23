@@ -31,7 +31,7 @@ int main() {
         int n_castles = 0;
         int n_promo = 0;
         int checks = 0;
-        U64 x = my_search.perft(position, i, i, &n_capts, &n_enpass, &n_promo, &n_castles, &checks);
+        U64 x = my_search.perft(position, i, &n_capts, &n_enpass, &n_promo, &n_castles, &checks);
         std::cout << std::dec << "perft " << i << ": " << x
                   << ", captures=" << n_capts
                   << ", en-passant=" << n_enpass
@@ -48,7 +48,7 @@ int main() {
         int n_castles = 0;
         int n_promo = 0;
         int checks = 0;
-        U64 x = my_search.perft(position, i, i, &n_capts, &n_enpass, &n_promo, &n_castles, &checks);
+        U64 x = my_search.perft(position, i, &n_capts, &n_enpass, &n_promo, &n_castles, &checks);
         std::cout << std::dec << "perft kiwipere " << i << ": " << x
                   << ", captures=" << n_capts
                   << ", en-passant=" << n_enpass
@@ -56,6 +56,22 @@ int main() {
                   << ", promotions=" << n_promo
                   << ", checks=" << checks
                   << std::endl;
+    }
+    {
+        std::shared_ptr<Wyvern::MagicTable> mt = std::make_shared<Wyvern::MagicTable>();
+        Wyvern::MoveGenerator mgen(mt);
+        Wyvern::Evaluator my_evaluator(mt);
+        Wyvern::Position position(kiwipete_fen);
+        position.printPretty();
+        std::vector<U32> moves; mgen.generateMoves<Wyvern::COLOR_WHITE>(position, true, &moves);
+        for (U32 move : moves) {
+            if (move & Wyvern::YES_CAPTURE) {
+                int seeval = my_evaluator.seeCapture<Wyvern::COLOR_WHITE>(position, move);
+                std::cout << "See value of ";
+                printSq(move & 63); printSq((move >> 6) & 63);
+                std::cout << " == "  << seeval << "\n";
+            } 
+        }
     }
 
 
@@ -73,7 +89,7 @@ int main() {
         Wyvern::Search my_search;
         pos.printPretty();
         int result;
-        U32 chosen_move = my_search.bestmove(pos, 15, 7, result);
+        U32 chosen_move = my_search.bestmove(pos, 15, 7, 14, result);
         std::cout << std::dec << "Static evaluation "
                   << (-2 * pos.getToMove() + 1) * evaluator.evalPositional(pos)
                   << " | Dynamic evaluation " << (-2 * pos.getToMove() + 1) * result
