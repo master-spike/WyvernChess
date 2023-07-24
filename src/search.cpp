@@ -33,8 +33,8 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_
     for (U32 move : moves) {
       pos.makeMove(move);
       BoundedEval val;
-      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true, (id_d+1)*2);
-      else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true, (id_d+1)*2);
+      if (player_turn == COLOR_WHITE) val = -negamax<COLOR_BLACK>(pos, id_d, -INT32_MAX, -t_alpha, true, id_d+4);
+      else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true, id_d+4);
       pos.unmakeMove();
 
       b_evals[i]=val; i++;

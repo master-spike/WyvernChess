@@ -10,7 +10,7 @@
 
 namespace Wyvern {
 
-constexpr int qs_depth_hardlimit = 10;
+constexpr int qs_depth_hardlimit = 30;
 
 class Search {
 private:
@@ -70,29 +70,8 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   alpha = (alpha > stand_pat) ? alpha : stand_pat; //baseline score
   enum Bound bound = (alpha > stand_pat) ? BOUND_UPPER : BOUND_EXACT;
   
-  if (depth_hard == 0) {
-    return BoundedEval(BOUND_UPPER, stand_pat);
-  }
-
-  // lookup from table, updating alpha and beta and returning if outside bounds or exact
-  // this logic is needed if we are using aspirational windows
-
-  // if we are shallow do not waste time searching the transposition table,
-  // as seaching it at every node is cache-unfriendly
-  BoundedEval table_lookup = (depth_hard > qs_depth_hardlimit - 4)
-                           ? ttable.lookup(pos.getZobrist(), 0)
-                           : BoundedEval(BOUND_INVALID, 0);
-  if (!(table_lookup.bound & BOUND_INVALID)) {
-    ++table_hits; 
-    if (table_lookup.bound == BOUND_EXACT) return table_lookup;
-    if (table_lookup.bound == BOUND_UPPER) {
-      if (table_lookup.eval <= alpha) return table_lookup;
-      if (table_lookup.eval <= beta) beta = table_lookup.eval;
-    }
-    if (table_lookup.bound == BOUND_LOWER) {
-      if (table_lookup.eval >= beta) return table_lookup;
-      if (table_lookup.eval >= alpha) alpha = table_lookup.eval;
-    }
+  if (depth_hard == 0 && !checks) {
+    return BoundedEval(bound, stand_pat);
   }
 
   // now we do captures.
@@ -105,9 +84,9 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
       pos.unmakeMove();
       if (!move_is_check) {
         int seeval = evaluator.seeCapture<CT>(pos, move);
-        if (seeval < 0) continue;
+        if (seeval < -100) continue;
         if (evaluator.totalMaterial(pos) > endgame_material_limit) {
-          int delta = seeval + stand_pat_initial + 200;
+          int delta = seeval + stand_pat_initial + 230;
           if (delta < alpha) continue;
         }
       }
@@ -130,7 +109,6 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
       bound = BOUND_LOWER; break;
     }
   }
-  ttable.insert(pos.getZobrist(),BoundedEval(bound, stand_pat),0);
 
   return BoundedEval(bound, stand_pat);
 
@@ -201,16 +179,17 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       bool lmr = false;
       
       // do not do lmr on good captures, checks, check evasions, shallow depth searches, early moves.
-      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d > 2) {
+      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 6 && id_d > 2) {
         lmr = true;
-        extension = -1;
+        extension = (id_d > 3 && i > 15) ? -2: -1;
       }
       
       BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);
+      
       if (val.eval >= t_alpha && val.bound != BOUND_UPPER && lmr) {
         // if not a bad looking move re-search at unreduced depth for late move reductions
-        extension++; 
-        val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);
+        extension = 0;
+        val = -negamax<CTO>(pos, id_d, -beta, -t_alpha, do_quiesce, d_max-1);
       } 
       pos.unmakeMove();
       --current_depth;

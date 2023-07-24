@@ -6,8 +6,8 @@ namespace Wyvern {
 constexpr int place_value_pawn[64] = {
     0,  0,  0,  0,  0,  0,  0,  0,
     5, 10, 10,-20,-20, 10, 10,  5,
-    5, -5,-10,  0,  0,-10, -5,  5,
-    0,  0,  0, 20, 20,  0,  0,  0,
+    5, -5, -5,  0,  0,-10, -5,  5,
+    0,  0,  5, 20, 20,  0,  0,  0,
     5,  5, 10, 25, 25, 10,  5,  5,
    10, 10, 20, 30, 30, 20, 10, 10,
    50, 50, 50, 50, 50, 50, 50, 50,
@@ -83,9 +83,9 @@ constexpr int king_end_game[64] = {
 constexpr int passed_pawn_value = 50;
 
 constexpr int queen_mobility_factor = 3;
-constexpr int bishop_mobility_factor = 4;
-constexpr int rook_mobility_factor = 4;
-constexpr int knight_mobility_factor = 4;
+constexpr int bishop_mobility_factor = 3;
+constexpr int rook_mobility_factor = 2;
+constexpr int knight_mobility_factor = 1;
 
 int psqvTableLookup(enum Color ct, int p, const int* table) {
   if (ct == COLOR_WHITE) return table[p];
@@ -269,17 +269,17 @@ int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, i
     side ^= 1;
     // gain is the current value of the exchange for side
     gain[d] = pvals[aPiece-1] - gain[d-1];
-    // if the current value for the player is <0 and the value for the previous player <0 break
-    if (MAX_INT(gain[d], -gain[d-1]) < 0) break;
-    attadef ^= fromset;
+    // if the current value for the player is <0 and the current value for the previous player <0 break
+    //if (MAX_INT(gain[d], -gain[d-1]) < 0) break;
     blockers ^= fromset;
+    attadef ^= fromset;
     if (fromset & may_xray_orth) {
-      attadef |= mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]) & may_xray_orth;
-      may_xray_orth &= ~attadef;
+      attadef |= mt->rook_magics[tosq].compute(blockers) & (pcs[3] | pcs[4]) & may_xray_orth & ad_xray;
+      ad_xray &= ~attadef;
     }
     if (fromset & may_xray_diag) {
-      attadef |= mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]) & may_xray_diag;
-      may_xray_diag &= ~attadef;
+      attadef |= mt->bishop_magics[tosq].compute(blockers) & (pcs[2] | pcs[4]) & may_xray_diag & ad_xray;
+      ad_xray &= ~attadef;
     }
     fromset = see_lvp(attadef, pcols[side], pcs, aPiece);
   }
