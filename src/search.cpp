@@ -37,13 +37,14 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_
       else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true, id_d+4);
       pos.unmakeMove();
 
-      b_evals[i]=val; i++;
       if (val.eval > best_this_iteration && val.bound != BOUND_UPPER) best_this_iteration = val.eval;
       if (val.eval > t_alpha && val.bound != BOUND_UPPER) t_alpha = val.eval;
       if (difftime(time(nullptr), init_time) >= time_limit && best_move != MOVE_NONE) {
         break;
       }
+      b_evals[i]=val; i++;
     }
+
     sortMoves(moves, b_evals);
     BoundedEval ref_beval = bestEvalInVector(b_evals);
 
