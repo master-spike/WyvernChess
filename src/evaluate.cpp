@@ -85,7 +85,10 @@ constexpr int passed_pawn_value = 50;
 constexpr int queen_mobility_factor = 3;
 constexpr int bishop_mobility_factor = 3;
 constexpr int rook_mobility_factor = 2;
-constexpr int knight_mobility_factor = 1;
+constexpr int knight_mobility_factor = 2;
+constexpr U64 central_squares = (FILE_C | FILE_D | FILE_E | FILE_F) & (RANK_3 | RANK_4 | RANK_5 | RANK_6);
+constexpr U64 side_territory[2] = { 0xFFFFFFFFULL, 0xFFFFFFFF00000000ULL};
+constexpr int space_value = 2;
 
 int psqvTableLookup(enum Color ct, int p, const int* table) {
   if (ct == COLOR_WHITE) return table[p];
@@ -215,6 +218,11 @@ int Evaluator::evalPositional(Position& pos) {
   kvals -= endgame_interp * psqvTableLookup(opponent, opking, king_middle_game);
   kvals -= (eg_mg_diff - endgame_interp) * psqvTableLookup(opponent, opking, king_end_game);
   total += kvals / eg_mg_diff;
+
+  // space
+  total += __builtin_popcountll(our_pawn_cs & central_squares & side_territory[opponent]) * space_value;
+  total -= __builtin_popcountll(opp_pawn_cs & central_squares & side_territory[player]) * space_value;
+
   total += evalMaterialOnly(pos);
 
   total += 30; // 30 centipawns for side to move
