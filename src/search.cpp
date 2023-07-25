@@ -24,12 +24,12 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_
 
   std::vector<BoundedEval> b_evals(moves.size());
   U32 best_move = MOVE_NONE;
-  int best_eval = -INT32_MAX;
+  BoundedEval best_eval(BOUND_UPPER, -INT32_MAX);
 
   for (int id_d = 0; (difftime(time(nullptr), init_time) < time_limit && id_d < max_basic_depth) || (best_move == MOVE_NONE); id_d++) {
     int t_alpha = -INT32_MAX; // temporary value of alpha for ids
     int i = 0;
-    int best_this_iteration = -INT32_MAX;
+    BoundedEval best_eval_id(BOUND_UPPER, -INT32_MAX);
     for (U32 move : moves) {
       pos.makeMove(move);
       BoundedEval val;
@@ -37,34 +37,30 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_
       else val = -negamax<COLOR_WHITE>(pos, id_d, -INT32_MAX, -t_alpha, true, id_d+4);
       pos.unmakeMove();
 
-      if (val.eval > best_this_iteration && val.bound != BOUND_UPPER) best_this_iteration = val.eval;
+      if (val.eval > best_eval_id.eval) best_eval_id = val;
       if (val.eval > t_alpha && val.bound != BOUND_UPPER) t_alpha = val.eval;
       if (difftime(time(nullptr), init_time) >= time_limit && best_move != MOVE_NONE) {
         break;
       }
       b_evals[i]=val; i++;
     }
-
+    if (difftime(time(nullptr), init_time) >= time_limit) break;
     sortMoves(moves, b_evals);
-    BoundedEval ref_beval = bestEvalInVector(b_evals);
-
-
-    if (ref_beval.eval >= INT32_MAX-100) {
-      best_eval = ref_beval.eval;
+    best_eval = best_eval_id;
+    if (best_eval.eval >= INT32_MAX-100) {
       for (size_t i = 0; i < b_evals.size(); ++i) {
-        if (b_evals[i] == ref_beval) best_move = moves[i];
+        if (b_evals[i] == best_eval) best_move = moves[i];
       }
       break; // go for forced mate if available
     } 
-    best_eval = ref_beval.eval;
     for (size_t i = 0; i < b_evals.size(); ++i) {
-      if (b_evals[i] == ref_beval) best_move = moves[i];
+      if (b_evals[i] == best_eval) best_move = moves[i];
     }
-    std::cout << "IDS value @depth=" << id_d << " == " << -(2*player_turn-1)*best_eval << ": move="; 
+    std::cout << "IDS value @depth=" << id_d << " == " << -(2*player_turn-1)*best_eval.eval << ": move="; 
     printSq(best_move & 63); printSq((best_move >> 6) & 63); std::cout << "\n";
   }
   printStats();
-  out_eval = best_eval;
+  out_eval = best_eval.eval;
   return (best_move);
 
 }
@@ -137,7 +133,7 @@ void Search::sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals)
   int lb_count = 0;
   int ub_count = 0;
   int exact_count = 0;
-  for (BoundedEval be : evals) {
+  for (auto be : evals) {
     if (be.bound == BOUND_EXACT) exact_count++;
     if (be.bound == BOUND_UPPER) ub_count++;
     if (be.bound == BOUND_LOWER) lb_count++;
@@ -181,11 +177,15 @@ bool Search::checkThreeReps(Position& pos) {
 
 
 BoundedEval Search::bestEvalInVector(std::vector<BoundedEval>& b_evals) {
-  BoundedEval best = BoundedEval(BOUND_EXACT, -INT32_MAX);
-  for (BoundedEval b : b_evals) {
-    if (b.eval > best.eval && (b.bound == BOUND_EXACT || b.bound == BOUND_LOWER)) best = b;
+  BoundedEval best = BoundedEval(BOUND_UPPER, -INT32_MAX);
+  BoundedEval best_ub = BoundedEval(BOUND_UPPER, -INT32_MAX);
+  for (auto b : b_evals) {
+    if ((b.eval > best.eval)
+     && (b.bound == BOUND_EXACT || b.bound == BOUND_LOWER)) {best = b;}
+    if ((b.eval > best.eval) && b.bound == BOUND_UPPER) {best_ub = b;}
   }
-  return best;
+  if (best.bound != BOUND_UPPER) return best;
+  else return best_ub;
 }
 
 Search::Search():

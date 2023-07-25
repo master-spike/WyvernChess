@@ -31,6 +31,7 @@ private:
   int max_depth;
   TranspositionTable ttable;
   void printStats();
+  int qs_entry_depth;
 public:
   Search();
   U32 bestmove(Position pos, double t_limit, int max_basic_depth, int max_depth_hard, int& out_eval);
@@ -74,6 +75,25 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
     return BoundedEval(bound, stand_pat);
   }
 
+  // lookup from table, updating alpha and beta and returning if outside bounds or exact
+  // this logic is needed if we are using aspirational windows
+  // must always come after move generation for checkmate test due to zobrist hash collision possibility
+  if (current_depth - qs_entry_depth < 4) {
+    BoundedEval table_lookup = ttable.lookup(pos.getZobrist(), 0);
+    if (!(table_lookup.bound & BOUND_INVALID)) {
+      ++table_hits;
+      if (table_lookup.bound == BOUND_EXACT) return table_lookup;
+      if (table_lookup.bound == BOUND_UPPER) {
+        if (table_lookup.eval <= alpha) return table_lookup;
+        if (table_lookup.eval <= beta) beta = table_lookup.eval;
+      }
+      if (table_lookup.bound == BOUND_LOWER) {
+        if (table_lookup.eval >= beta) return table_lookup;
+        if (table_lookup.eval >= alpha) alpha = table_lookup.eval;
+      }
+    }
+  }
+
   // now we do captures.
   for (U32 move : moves) {
     
@@ -109,7 +129,9 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
       bound = BOUND_LOWER; break;
     }
   }
-
+  
+  if (current_depth - qs_entry_depth < 4)
+    ttable.insert(pos.getZobrist(),BoundedEval(bound, stand_pat),0);
   return BoundedEval(bound, stand_pat);
 
 }
@@ -119,8 +141,10 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   if (current_depth > max_depth) max_depth = current_depth;
   ++node_count;
   constexpr enum Color CTO = (enum Color) (CT^1);
-  // if terminal return draw, win, loss as appropriate
-  // todo if
+
+
+
+
   std::vector<U32> moves;
   movegen.generateMoves<CT>(pos, true, &moves);
   if (moves.size() == 0) {
@@ -129,13 +153,10 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   }
   if (pos.getHMC() >= 50) return BoundedEval(BOUND_EXACT, 0);
   if (checkThreeReps(pos)) return BoundedEval(BOUND_EXACT, 0);
-  if (depth == 0 || d_max == 0) {
-    if (!do_quiesce) return BoundedEval(BOUND_EXACT, evaluator.evalPositional(pos));
-    return quiesce<CT>(pos, alpha, beta, qs_depth_hardlimit);
-  }
 
   // lookup from table, updating alpha and beta and returning if outside bounds or exact
   // this logic is needed if we are using aspirational windows
+  // must always come after move generation for checkmate test due to zobrist hash collision possibility
   BoundedEval table_lookup = ttable.lookup(pos.getZobrist(), depth);
   if (!(table_lookup.bound & BOUND_INVALID)) {
     ++table_hits;
@@ -150,14 +171,22 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
     }
   }
 
-  std::vector<BoundedEval> b_evals(moves.size(), BoundedEval(BOUND_UPPER, -INT32_MAX));
-  BoundedEval best_so_far = BoundedEval(BOUND_EXACT, -INT32_MAX);
-  int bsf_depth = -1;
+  if (depth == 0 || d_max == 0) {
+    if (!do_quiesce) return BoundedEval(BOUND_EXACT, evaluator.evalPositional(pos));
+    qs_entry_depth = current_depth;
+    return quiesce<CT>(pos, alpha, beta, qs_depth_hardlimit);
+  }
 
+
+
+  std::vector<BoundedEval> b_evals(moves.size(), BoundedEval(BOUND_UPPER, -INT32_MAX));
+
+  BoundedEval best_evaluation;
   // iterative deepening up to depth-2 to get promising move order 
-  for (int id_d = 0; id_d < depth; id_d++) {
+  for (int id_d = 0; id_d < depth && difftime(time(nullptr), init_time) < time_limit; id_d++) {
     int t_alpha = alpha; // temporary value of alpha for ids
     int i = 0;
+    BoundedEval best_eval_id(BOUND_UPPER, -INT32_MAX);
     for (U32 move : moves) {
 
       current_depth++;
@@ -179,14 +208,17 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       bool lmr = false;
       
       // do not do lmr on good captures, checks, check evasions, shallow depth searches, early moves.
-      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 6 && id_d > 2) {
+      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d > 1) {
         lmr = true;
-        extension = (id_d > 3 && i > 15) ? -2: -1;
+        extension = (id_d > 2 && i > 15) ? -2: -1;
+        if (b_evals[i].eval < t_alpha && id_d >= 3 && i >= (int) moves.size()/2) {
+          i++; current_depth--; pos.unmakeMove(); continue; // ultimate prune
+        }
       }
       
       BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);
       
-      if (val.eval >= t_alpha && val.bound != BOUND_UPPER && lmr) {
+      if (val.eval >= t_alpha && lmr) {
         // if not a bad looking move re-search at unreduced depth for late move reductions
         extension = 0;
         val = -negamax<CTO>(pos, id_d, -beta, -t_alpha, do_quiesce, d_max-1);
@@ -196,30 +228,28 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       // add 1 to "distance" if result is forced mate
       if (val.eval <= 40-INT32_MAX) val.eval++;
       if (val.eval >= INT32_MAX-40) val.eval--;
-
-      if (val.eval > best_so_far.eval && bsf_depth <= id_d + extension) {
-        best_so_far = val;
-        bsf_depth = id_d + extension;
-      }
-
         
-      b_evals[i++]=val;
       if (difftime(time(nullptr), init_time) >= time_limit) {
-        return best_so_far;
+        break;
       }
+      b_evals[i]=val;
       if (val.eval > t_alpha) t_alpha = val.eval;
-      // no fail if id_d < depth - 1, as we want to at least seach all nodes here for move ordering.
-      if (t_alpha >= beta) {
-        best_so_far.bound = BOUND_LOWER;
+      if (val.eval >= best_eval_id.eval) best_eval_id = val;
+      if (t_alpha >= beta && id_d > 0) {
+        b_evals[i].bound = BOUND_LOWER;
         break; // either continue ids or
       }
+      i++;
     }
+    if (difftime(time(nullptr), init_time) >= time_limit) {
+      break;
+    }
+    best_evaluation = best_eval_id;
     sortMoves(moves, b_evals);
   }
-  if (best_so_far.eval < alpha) best_so_far.bound = BOUND_UPPER;
-  else best_so_far.bound = BOUND_EXACT;
-  ttable.insert(pos.getZobrist(),best_so_far,depth);
-  return best_so_far;
+  if (best_evaluation.eval < alpha) best_evaluation.bound = BOUND_UPPER;
+  ttable.insert(pos.getZobrist(),best_evaluation,depth);
+  return best_evaluation;
 }
 
 }
