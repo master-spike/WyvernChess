@@ -98,8 +98,8 @@ int psqvTableLookup(enum Color ct, int p, const int* table) {
 int Evaluator::evalMaterialOnly(Position& pos){
   enum Color player = pos.getToMove();
   enum Color opponent = (player == COLOR_BLACK) ? COLOR_WHITE : COLOR_BLACK;
-  U64* pcols = pos.getPieceColors();
-  U64* pcs = pos.getPieces();
+  const U64* pcols = pos.getPieceColors();
+  const U64* pcs = pos.getPieces();
   int total = 0;
   for (int i = 0; i < 5; ++i) {
     total += pvals[i] * __builtin_popcountll(pcols[player] & pcs[i]);
@@ -110,7 +110,7 @@ int Evaluator::evalMaterialOnly(Position& pos){
 }
 
 int Evaluator::totalMaterial(Position& pos) {
-  U64* pcs = pos.getPieces();
+  const U64* pcs = pos.getPieces();
   int total_material = 0;
   total_material += __builtin_popcountll(pcs[PAWN-1]);
   total_material += 3*__builtin_popcountll(pcs[KNIGHT-1] | pcs[BISHOP-1]);
@@ -122,8 +122,8 @@ int Evaluator::totalMaterial(Position& pos) {
 int Evaluator::evalPositional(Position& pos) {
   enum Color player = pos.getToMove();
   enum Color opponent = (player == COLOR_BLACK) ? COLOR_WHITE : COLOR_BLACK;
-  U64* pcols = pos.getPieceColors();
-  U64* pcs = pos.getPieces();
+  const U64* pcols = pos.getPieceColors();
+  const U64* pcs = pos.getPieces();
   int total = 0;
   int total_material = totalMaterial(pos);
   total_material += __builtin_popcountll(pcs[PAWN-1]);
@@ -237,7 +237,7 @@ Evaluator::Evaluator(std::shared_ptr<MagicTable> _mt) {
 }
 
 
-static U64 see_lvp(U64 attadef, U64 side_pcs, U64* pieceBB, enum PieceType& aPiece) {
+static U64 see_lvp(U64 attadef, U64 side_pcs, const U64* pieceBB, enum PieceType& aPiece) {
   for (int p = 0; p < 6; p++) {
     U64 set = side_pcs & attadef & pieceBB[p];
     if (set) {
@@ -253,8 +253,8 @@ int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, i
 {
   side &= 1;
   enum PieceType aPiece = piece;
-  U64* pcs = pos.getPieces();
-  U64* pcols = pos.getPieceColors();
+  const U64* pcs = pos.getPieces();
+  const U64* pcols = pos.getPieceColors();
   U64 blockers = pcols[0] | pcols[1];
   int gain[32];
   U64 fromset = 1ULL << frsq;

@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <ctime>
 
-char kiwipete_fen[56] = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R";
+const char kiwipete_fen[56] = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R";
 
 int main() {
     /*
@@ -63,7 +63,7 @@ int main() {
         Wyvern::Evaluator my_evaluator(mt);
         Wyvern::Position position(kiwipete_fen);
         position.printPretty();
-        std::vector<U32> moves; mgen.generateMoves<Wyvern::COLOR_WHITE>(position, true, &moves);
+        std::vector<U32> moves; mgen.generateMoves<Wyvern::COLOR_WHITE>(position, true, moves);
         for (U32 move : moves) {
             if (move & Wyvern::YES_CAPTURE) {
                 int seeval = my_evaluator.seeCapture<Wyvern::COLOR_WHITE>(position, move);

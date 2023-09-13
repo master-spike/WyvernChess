@@ -24,11 +24,11 @@ private:
   std::vector<int> hmc_history;
 
 public:
-  std::vector<U64>::const_reverse_iterator positionHistoryIteratorBegin();
-  std::vector<U64>::const_reverse_iterator positionHistoryIteratorEnd();
+  std::vector<U64>::const_reverse_iterator positionHistoryIteratorBegin() const;
+  std::vector<U64>::const_reverse_iterator positionHistoryIteratorEnd() const;
   std::vector<U32> move_history;
   Position();
-  Position(char* fen);
+  Position(const char* fen);
   ~Position() = default;
   Position(const Position& pos);
   void zobristHash();
@@ -40,8 +40,8 @@ public:
   int getFMC() const;
   U64 getZobrist() const;
   enum CastlingRights getCR() const;
-  U64* getPieceColors();
-  U64* getPieces();
+  const U64* getPieceColors() const;
+  const U64* getPieces() const;
   enum Color getToMove() const;
   int checkValidity();
   enum PieceType pieceAtSquare(U64 sq);

@@ -23,7 +23,7 @@ private:
   time_t init_time;
   time_t time_limit;
   BoundedEval bestEvalInVector(std::vector<BoundedEval>& b_evals);
-  bool checkThreeReps(Position& pos);
+  bool checkThreeReps(const Position& pos);
   U64 node_count;
   U64 node_count_qs;
   U64 table_hits;
@@ -50,8 +50,8 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   U64 checks = movegen.inCheck(pos);
   
   std::vector<U32> moves;
-  if (checks) movegen.generateMoves<CT>(pos, true, &moves);
-  else movegen.generateMoves<CT>(pos, false, &moves);
+  if (checks) movegen.generateMoves<CT>(pos, true, moves);
+  else movegen.generateMoves<CT>(pos, false, moves);
   
   // if in check any move that avoids mate is good
   int stand_pat = (checks) ? -INT32_MAX : evaluator.evalPositional(pos);
@@ -60,7 +60,7 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
 
   if (moves.size() == 0) {
     std::vector<U32> temp;
-    movegen.generateMoves<CT>(pos, true, &temp); // generate more moves to check for mate/stalemate
+    movegen.generateMoves<CT>(pos, true, temp); // generate more moves to check for mate/stalemate
     if (checks && temp.size() == 0) return BoundedEval(BOUND_EXACT, -INT32_MAX);
     if (temp.size() == 0) return BoundedEval(BOUND_EXACT, 0); // stalemate
     // not stalemate, no captures, return stand pat
@@ -146,7 +146,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
 
 
   std::vector<U32> moves;
-  movegen.generateMoves<CT>(pos, true, &moves);
+  movegen.generateMoves<CT>(pos, true, moves);
   if (moves.size() == 0) {
     if (movegen.inCheck(pos)) return BoundedEval(BOUND_EXACT,-INT32_MAX);
     return BoundedEval(BOUND_EXACT, 0);
@@ -210,10 +210,12 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
       // do not do lmr on good captures, checks, check evasions, shallow depth searches, early moves.
       if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d > 1) {
         lmr = true;
-        extension = (id_d > 2 && i > 15) ? -2: -1;
+        extension = (id_d > 2) & (i > 15) ? -2: -1;
+        
         if (b_evals[i].eval < t_alpha && id_d >= 3 && i >= (int) moves.size()/2) {
           i++; current_depth--; pos.unmakeMove(); continue; // ultimate prune
         }
+        
       }
       
       BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max-1);

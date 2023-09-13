@@ -16,8 +16,8 @@ U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_
   time_limit = t_limit;
   enum Color player_turn = pos.getToMove();
   std::vector<U32> moves;
-  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos, true, &moves);
-  else movegen.generateMoves<COLOR_WHITE>(pos, true, &moves);
+  if (player_turn) movegen.generateMoves<COLOR_BLACK>(pos, true, moves);
+  else movegen.generateMoves<COLOR_WHITE>(pos, true, moves);
 
   if (moves.size() == 0) return MOVE_NONE;
   if (moves.size() == 1) {std::cout << "single legal move" << std::endl ; return moves.back(); }
@@ -86,8 +86,8 @@ U64 Search::perft(Position& pos, int depth, int* n_capts, int* n_enpass, int* n_
     std::cout << "\n";
     std::cin.get();
   }
-  U64* pcols = pos.getPieceColors();
-  U64* pcs = pos.getPieces();
+  const U64* pcols = pos.getPieceColors();
+  const U64* pcs = pos.getPieces();
   enum Color ct = pos.getToMove();
   int black_kp = __builtin_ctzll(pcs[KING-1] & pcols[1]);
   int white_kp = __builtin_ctzll(pcs[KING-1] & pcols[0]);
@@ -103,8 +103,8 @@ U64 Search::perft(Position& pos, int depth, int* n_capts, int* n_enpass, int* n_
   }
   int sum = 0;
   std::vector<U32> moves;
-  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos, true, &moves);
-  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos, true, &moves);
+  if (ct == COLOR_WHITE) movegen.generateMoves<COLOR_WHITE>(pos, true, moves);
+  if (ct == COLOR_BLACK) movegen.generateMoves<COLOR_BLACK>(pos, true, moves);
 
 
   for (U32 move : moves) {
@@ -162,7 +162,7 @@ void Search::sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals)
   }
 }
 
-bool Search::checkThreeReps(Position& pos) {
+bool Search::checkThreeReps(const Position& pos) {
   auto begin = pos.positionHistoryIteratorBegin();
   auto end = pos.positionHistoryIteratorEnd();
   int hmc = pos.getHMC();

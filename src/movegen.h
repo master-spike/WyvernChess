@@ -26,58 +26,57 @@ private:
   U64 makePinmask(int p, U64 pp_d, U64 pp_o, U64 blockers, int king, U64 enemy_diag, U64 enemy_orth);
   template<enum PieceType PT, enum Color CT>
   void generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, int myking, U64 our_pieces,
-                             U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 pp_o, U64 pp_d);
-  void flushMoves();
-  void emplaceCaptures(int p, enum PieceType pt, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 targets) {
-    for(U64 t = targets & e_p; t; t &= t - 1) {
+                             U64 enemy_pieces, const U64* all_pieces, U64 pp_o, U64 pp_d, std::vector<U32>& move_tgts);
+  void emplaceCaptures(int p, enum PieceType pt, U64 enemy_pieces, const U64* all_pieces, U64 targets, std::vector<U32>& move_tgts) {
+    for(U64 t = targets & enemy_pieces & all_pieces[0]; t; t &= t - 1) {
         int tp = __builtin_ctzll(t);
-        move_targets->emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
+        move_tgts.emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
     }
-    for(U64 t = targets & e_n; t; t &= t - 1) {
+    for(U64 t = targets & enemy_pieces & all_pieces[1]; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      move_targets->emplace_back(p + (tp << 6) + CAPTURE_KNIGHT + ((U32)pt << 20));
+      move_tgts.emplace_back(p + (tp << 6) + CAPTURE_KNIGHT + ((U32)pt << 20));
     }
-    for(U64 t = targets & e_b; t; t &= t - 1) {
+    for(U64 t = targets & enemy_pieces & all_pieces[2]; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      move_targets->emplace_back(p + (tp << 6) + CAPTURE_BISHOP + ((U32)pt << 20));
+      move_tgts.emplace_back(p + (tp << 6) + CAPTURE_BISHOP + ((U32)pt << 20));
     }
-    for(U64 t = targets & e_r; t; t &= t - 1) {
+    for(U64 t = targets & enemy_pieces & all_pieces[3]; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      move_targets->emplace_back(p + (tp << 6) + CAPTURE_ROOK + ((U32)pt << 20));
+      move_tgts.emplace_back(p + (tp << 6) + CAPTURE_ROOK + ((U32)pt << 20));
     }
-    for(U64 t = targets & e_q; t; t &= t - 1) {
+    for(U64 t = targets & enemy_pieces & all_pieces[4]; t; t &= t - 1) {
       int tp = __builtin_ctzll(t);
-      move_targets->emplace_back(p + (tp << 6) + CAPTURE_QUEEN + ((U32)pt << 20));
+      move_tgts.emplace_back(p + (tp << 6) + CAPTURE_QUEEN + ((U32)pt << 20));
     }
   }
-  void emplaceNonCaptures(int p, enum PieceType pt, U64 targets) {
+  void emplaceNonCaptures(int p, enum PieceType pt, U64 targets, std::vector<U32>& move_tgts) {
     for(U64 t = targets; t; t &= t-1) {
       int tp = __builtin_ctzll(t);
-      move_targets->emplace_back(p + (tp << 6) + ((U32)pt << 20));
+      move_tgts.emplace_back(p + (tp << 6) + ((U32)pt << 20));
     }
   }
-  void emplacePromotions(int p, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 targets) {
+  void emplacePromotions(int p, U64 enemy_pieces, const U64* all_pieces,  U64 targets, std::vector<U32>& move_tgts) {
     for (U64 t = targets; t; t&= t-1) {
       int tp = __builtin_ctzll(t);
       enum MoveCapture cap = NO_CAPTURE;
-      if (e_p & (1ULL << tp)) cap = CAPTURE_PAWN;
-      if (e_b & (1ULL << tp)) cap = CAPTURE_BISHOP;
-      if (e_n & (1ULL << tp)) cap = CAPTURE_KNIGHT;
-      if (e_r & (1ULL << tp)) cap = CAPTURE_ROOK;
-      if (e_q & (1ULL << tp)) cap = CAPTURE_QUEEN;
+      U64 tbb = 1ULL << tp;
+      if (enemy_pieces & all_pieces[PAWN-1] & tbb) cap = CAPTURE_PAWN;
+      if (enemy_pieces & all_pieces[KNIGHT-1] & tbb) cap = CAPTURE_KNIGHT;
+      if (enemy_pieces & all_pieces[BISHOP-1] & tbb) cap = CAPTURE_BISHOP;
+      if (enemy_pieces & all_pieces[ROOK-1] & tbb) cap = CAPTURE_ROOK;
+      if (enemy_pieces & all_pieces[QUEEN-1] & tbb) cap = CAPTURE_QUEEN;
       for (U32 pp = 0; pp <= (3 << 12); pp += 1 << 12) {
-        move_targets->emplace_back(p + (tp << 6) + ((U32)cap) + PROMO + pp + MOVE_PAWN);
+        move_tgts.emplace_back(p + (tp << 6) + ((U32)cap) + PROMO + pp + MOVE_PAWN);
       }
     }
   }
-  std::vector<U32>* move_targets;
 public:
   std::shared_ptr<MagicTable> mt;
-  template<enum Color CT> U64 squareAttackedBy(int p, Position& pos, U64 custom_blockers);
+  template<enum Color CT> U64 squareAttackedBy(int p, const Position& pos, U64 custom_blockers);
   MoveGenerator() = delete;
   MoveGenerator(std::shared_ptr<MagicTable> _mt);
-  MoveGenerator(const MoveGenerator& in_mg) = delete;
-  template<enum Color CT> int generateMoves(Position& pos, bool incl_quiets, std::vector<U32>* move_tgts);
+  MoveGenerator(const MoveGenerator&) = delete;
+  template<enum Color CT> int generateMoves(Position& pos, bool incl_quiets, std::vector<U32>& move_tgts);
   U64 inCheck(Position& pos);
   ~MoveGenerator() = default;
 };
@@ -131,9 +130,9 @@ template<enum Color CT> U64 MoveGenerator::bbCastles(Position& pos) {
 }
 
 template<enum Color CT>
-U64 MoveGenerator::squareAttackedBy(int p, Position& pos, U64 custom_blockers) {
-  U64* pcols = pos.getPieceColors();
-  U64* pcs = pos.getPieces();
+U64 MoveGenerator::squareAttackedBy(int p, const Position& pos, U64 custom_blockers) {
+  const U64* pcols = pos.getPieceColors();
+  const U64* pcs = pos.getPieces();
   U64 blockers = (custom_blockers) ? custom_blockers : (pcols[0] | pcols[1]) & ~(1ULL << p);
   U64 attackers = 0;
   attackers |= pcs[QUEEN-1] & (mt->bishop_magics[p].compute(blockers) | mt->rook_magics[p].compute(blockers));
@@ -151,53 +150,39 @@ U64 MoveGenerator::squareAttackedBy(int p, Position& pos, U64 custom_blockers) {
   return attackers;
 }
 
-
 //not to be used for king moves
 template<enum PieceType PT, enum Color CT>
-void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, int myking, U64 our_pieces, U64 e_p, U64 e_n, U64 e_b, U64 e_r, U64 e_q, U64 pp_o, U64 pp_d) {
-  U64 caps = e_p | e_n | e_b | e_r | e_q;
-  if constexpr (PT == PAWN) {
-    U64 promo_rank = RANK_8 >> (56*CT);
-    for (; ps; ps &= ps-1) {
-      int p = __builtin_ctzll(ps);
-      U64 pinmask = makePinmask(p, pp_d, pp_o, blockers, myking, (e_q|e_b), (e_q|e_r));
-      U64 targets = bbPseudoLegalMoves<PAWN, CT>(p, checkmask & pinmask & ~our_pieces, blockers);
+void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, int myking, U64 our_pieces, U64 enemy_pieces, const U64* all_pieces, U64 pp_o, U64 pp_d, std::vector<U32>& move_tgts) {
+  for (; ps; ps &= ps-1) {
+    int p = __builtin_ctzll(ps);
+    U64 pinmask = makePinmask(p, pp_d, pp_o, blockers, myking, enemy_pieces & (all_pieces[QUEEN-1]|all_pieces[BISHOP-1]), enemy_pieces & (all_pieces[QUEEN-1]|all_pieces[ROOK-1]));
+    U64 targets = bbPseudoLegalMoves<PT, CT>(p, checkmask & pinmask & ~our_pieces, blockers);
+    if constexpr (PT == PAWN) {
+      constexpr U64 promo_rank = RANK_8 >> (56*CT);
       U64 t_promotions = targets & promo_rank;
-      U64 t_captures = targets & caps & ~promo_rank;
-      U64 t_non_caps = targets & ~caps & ~promo_rank;
-      emplacePromotions(p, e_p, e_n, e_b, e_r, e_q, t_promotions);
-      emplaceCaptures(p, PAWN, e_p, e_n, e_b, e_r, e_q, t_captures);
-      emplaceNonCaptures(p, PAWN, t_non_caps);
+      U64 t_captures = targets & enemy_pieces & ~promo_rank;
+      U64 t_non_caps = targets & ~enemy_pieces & ~promo_rank;
+      emplacePromotions(p, enemy_pieces, all_pieces, t_promotions, move_tgts);
+      emplaceCaptures(p, PAWN, enemy_pieces, all_pieces, t_captures, move_tgts);
+      emplaceNonCaptures(p, PAWN, t_non_caps, move_tgts);
     }
-  }
-  else if constexpr (PT >= KNIGHT && PT <= QUEEN) {
-    for (;ps; ps &= ps-1) {
+    else if constexpr (PT >= KNIGHT && PT <= QUEEN) {
       int p = __builtin_ctzll(ps);  
-      U64 pinmask = makePinmask(p, pp_d, pp_o, blockers, myking, (e_q|e_b), (e_q|e_r));
-      U64 targets = bbPseudoLegalMoves<PT, CT>(p, checkmask & pinmask & ~our_pieces, blockers);
-      U64 t_caps = targets & caps;
-      U64 t_quiets = targets & ~caps;
-      emplaceCaptures(p, PT, e_p, e_n, e_b, e_r, e_q, t_caps);
-      emplaceNonCaptures(p, PT, t_quiets);
+      U64 t_caps = targets & enemy_pieces;
+      U64 t_quiets = targets & ~enemy_pieces;
+      emplaceCaptures(p, PT, enemy_pieces, all_pieces, t_caps, move_tgts);
+      emplaceNonCaptures(p, PT, t_quiets, move_tgts);
     }
   }
 }
 
 template<enum Color CT>
-int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U32>* move_tgts) {
-  move_targets = move_tgts;
+int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U32>& move_tgts) {
   constexpr enum Color CTO = (enum Color) (CT ^ 1); 
-  flushMoves();
   if constexpr (CT > 1) return 0;
-  U64 pieces[6];
-  U64 piece_colors[2];
-  {
-    U64* pcls = pos.getPieceColors();
-    U64* pcs = pos.getPieces();
-    for (int i = 0; i < 6; i++) pieces[i] = pcs[i];
-    piece_colors[0] = pcls[0];
-    piece_colors[1] = pcls[1];
-  }
+  const U64* pieces = pos.getPieces();
+  const U64* piece_colors = pos.getPieceColors();
+
   U64 blockers = piece_colors[0] | piece_colors[1];
   int myking = __builtin_ctzll(pieces[KING-1] & piece_colors[CT]); 
   U64 checkmask = 0xFFFFFFFFFFFFFFFFULL; // sneaky all bits set
@@ -232,11 +217,6 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     //printbb(checkmask);
   }
   // checkmask now holds all possible target squares to block or capture a checking piece if applicable
-  U64 enemy_queens = pieces[QUEEN-1] & piece_colors[CTO];
-  U64 enemy_rooks = pieces[ROOK-1] & piece_colors[CTO];
-  U64 enemy_bishops = pieces[BISHOP-1] & piece_colors[CTO];
-  U64 enemy_knights = pieces[KNIGHT-1] & piece_colors[CTO];
-  U64 enemy_pawns = pieces[PAWN-1] & piece_colors[CTO];
 
   U64 v_targets = checkmask & ((incl_quiets) ? 0xFFFFFFFFFFFFFFFFULL : piece_colors[CT^1]);
 
@@ -249,20 +229,15 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     // move ordering:
     // pxq, pxr, px
     generateStandardMoves<PAWN,CT>(piece_colors[CT] & pieces[PAWN-1], v_targets | promo_rank, blockers, myking,
-                                   piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
-                                   enemy_rooks, enemy_queens, pp_o, pp_d);
+                                   piece_colors[CT], piece_colors[CTO], pieces, pp_o, pp_d, move_tgts);
     generateStandardMoves<KNIGHT,CT>(piece_colors[CT] & pieces[KNIGHT-1], v_targets, blockers, myking,
-                                   piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
-                                   enemy_rooks, enemy_queens, pp_o, pp_d);
+                                   piece_colors[CT], piece_colors[CTO], pieces, pp_o, pp_d, move_tgts);
     generateStandardMoves<BISHOP,CT>(piece_colors[CT] & pieces[BISHOP-1], v_targets, blockers, myking,
-                                   piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
-                                   enemy_rooks, enemy_queens, pp_o, pp_d);
+                                   piece_colors[CT], piece_colors[CTO], pieces, pp_o, pp_d, move_tgts);
     generateStandardMoves<ROOK,CT>(piece_colors[CT] & pieces[ROOK-1], v_targets, blockers, myking,
-                                   piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
-                                   enemy_rooks, enemy_queens, pp_o, pp_d);
+                                   piece_colors[CT], piece_colors[CTO], pieces, pp_o, pp_d, move_tgts);
     generateStandardMoves<QUEEN,CT>(piece_colors[CT] & pieces[QUEEN-1], v_targets, blockers, myking,
-                                   piece_colors[CT], enemy_pawns, enemy_knights, enemy_bishops,
-                                   enemy_rooks, enemy_queens, pp_o, pp_d);
+                                   piece_colors[CT], piece_colors[CTO], pieces, pp_o, pp_d, move_tgts);
 
   }
   // king moves
@@ -271,8 +246,8 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     int t = __builtin_ctzll(tt);
     if (squareAttackedBy<CTO>(t, pos, blockers ^ (1ULL << myking))) pseudo_king_moves &= ~(1ULL << t);
   }
-  emplaceCaptures(myking, KING, enemy_pawns, enemy_knights, enemy_bishops, enemy_rooks, enemy_queens, pseudo_king_moves & piece_colors[CT^1]);
-  if (incl_quiets) emplaceNonCaptures(myking, KING, pseudo_king_moves & ~piece_colors[CT^1]);
+  emplaceCaptures(myking, KING, piece_colors[CTO], pieces, pseudo_king_moves & piece_colors[CT^1], move_tgts);
+  if (incl_quiets) emplaceNonCaptures(myking, KING, pseudo_king_moves & ~piece_colors[CT^1], move_tgts);
 
 
   // castles
@@ -281,10 +256,10 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     U64 cst_qs = FILE_C & castle_targets;
     U64 cst_ks = FILE_G & castle_targets;
     if (cst_ks) {
-      move_targets->emplace_back((64 * __builtin_ctzll(cst_ks) + myking) + CASTLES + MOVE_KING);
+      move_tgts.emplace_back((64 * __builtin_ctzll(cst_ks) + myking) + CASTLES + MOVE_KING);
     }
     if (cst_qs) {
-      move_targets->emplace_back((64 * __builtin_ctzll(cst_qs) + myking) + CASTLES + MOVE_KING);
+      move_tgts.emplace_back((64 * __builtin_ctzll(cst_qs) + myking) + CASTLES + MOVE_KING);
     }
   }
   // en passant now
@@ -304,10 +279,9 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     for (; ep_ps; ep_ps &= ep_ps-1) {
       int p = __builtin_ctzll(ep_ps);
       if (squareAttackedBy<CTO>(myking, pos, blockers ^ (1ULL << p) ^ ep_bb ^ ep_enemy_pawn)) continue;
-      move_targets->emplace_back((64 * __builtin_ctzll(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
+      move_tgts.emplace_back((64 * __builtin_ctzll(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
     }
   }
-  move_targets = nullptr;
   return 0;
 }
 

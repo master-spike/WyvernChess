@@ -177,12 +177,12 @@ enum Color Position::getToMove() const {
   return tomove;
 }
 
-std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorBegin()
+std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorBegin() const
 {
   return position_history.crbegin();
 }
 
-std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorEnd()
+std::vector<U64>::const_reverse_iterator Position::positionHistoryIteratorEnd() const
 {
   return position_history.crend();
 }
@@ -268,10 +268,10 @@ int Position::getFMC() const {
 enum CastlingRights Position::getCR() const {
   return castling;
 }
-U64* Position::getPieceColors() {
+const U64* Position::getPieceColors() const {
   return piece_colors;
 }
-U64* Position::getPieces() {
+const U64* Position::getPieces() const {
   return pieces;
 }
 enum PieceType Position::pieceAtSquare(U64 sq) {
@@ -300,6 +300,9 @@ int Position::checkValidity() {
       printbb(pieces[i]);
       std::cout << "overlap:\n";
       printbb(all_pieces);
+      for (U32 m : move_history) {
+       std::cout << std::hex << m << std::dec << std::endl;
+      }
       return 1;
     }
     all_pieces |= pieces[i];
@@ -372,7 +375,7 @@ static int fenParseBoardChar(char c) {
   return 0;
 }
 
-Position::Position(char* fen) {
+Position::Position(const char* fen) {
   int rank = 7;
   int file = 0;
 //  int num = 0;
