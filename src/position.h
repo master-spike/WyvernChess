@@ -1,7 +1,9 @@
 #ifndef H_GUARD_POSITION
 #define H_GUARD_POSITION
 
+#include <bit>
 #include <vector>
+
 #include "types.h"
 #include "utils.h"
 #include "zobrist.h"

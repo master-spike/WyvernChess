@@ -1,6 +1,8 @@
 #ifndef H_GUARD_MOVEGEN
 #define H_GUARD_MOVEGEN
 
+#include <bit>
+
 #include "position.h"
 #include "types.h"
 #include "magicbb.h"
@@ -29,35 +31,35 @@ private:
                              U64 enemy_pieces, const U64* all_pieces, U64 pp_o, U64 pp_d, std::vector<U32>& move_tgts);
   void emplaceCaptures(int p, enum PieceType pt, U64 enemy_pieces, const U64* all_pieces, U64 targets, std::vector<U32>& move_tgts) {
     for(U64 t = targets & enemy_pieces & all_pieces[0]; t; t &= t - 1) {
-        int tp = __builtin_ctzll(t);
+        int tp = std::countr_zero(t);
         move_tgts.emplace_back(p + (tp << 6) + CAPTURE_PAWN + ((U32)pt << 20));
     }
     for(U64 t = targets & enemy_pieces & all_pieces[1]; t; t &= t - 1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       move_tgts.emplace_back(p + (tp << 6) + CAPTURE_KNIGHT + ((U32)pt << 20));
     }
     for(U64 t = targets & enemy_pieces & all_pieces[2]; t; t &= t - 1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       move_tgts.emplace_back(p + (tp << 6) + CAPTURE_BISHOP + ((U32)pt << 20));
     }
     for(U64 t = targets & enemy_pieces & all_pieces[3]; t; t &= t - 1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       move_tgts.emplace_back(p + (tp << 6) + CAPTURE_ROOK + ((U32)pt << 20));
     }
     for(U64 t = targets & enemy_pieces & all_pieces[4]; t; t &= t - 1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       move_tgts.emplace_back(p + (tp << 6) + CAPTURE_QUEEN + ((U32)pt << 20));
     }
   }
   void emplaceNonCaptures(int p, enum PieceType pt, U64 targets, std::vector<U32>& move_tgts) {
     for(U64 t = targets; t; t &= t-1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       move_tgts.emplace_back(p + (tp << 6) + ((U32)pt << 20));
     }
   }
   void emplacePromotions(int p, U64 enemy_pieces, const U64* all_pieces,  U64 targets, std::vector<U32>& move_tgts) {
     for (U64 t = targets; t; t&= t-1) {
-      int tp = __builtin_ctzll(t);
+      int tp = std::countr_zero(t);
       enum MoveCapture cap = NO_CAPTURE;
       U64 tbb = 1ULL << tp;
       if (enemy_pieces & all_pieces[PAWN-1] & tbb) cap = CAPTURE_PAWN;
@@ -114,7 +116,7 @@ template<enum Color CT> U64 MoveGenerator::bbCastles(Position& pos) {
   U64 ks_path = 0x60ULL << (56 * CT);
   U64 blockers = pos.getPieceColors()[0];
   blockers |= pos.getPieceColors()[1];
-  int king = __builtin_ctzll(pos.getPieces()[KING-1] & pos.getPieceColors()[CT]);
+  int king = std::countr_zero(pos.getPieces()[KING-1] & pos.getPieceColors()[CT]);
   U64 out_bb = 0;
   if ((cr & CR_QUEEN) && !(qs_path & blockers)) {
     if (!squareAttackedBy<CTO>(king-1, pos, 0) && !squareAttackedBy<CTO>(king-2, pos, 0)) {
@@ -154,7 +156,7 @@ U64 MoveGenerator::squareAttackedBy(int p, const Position& pos, U64 custom_block
 template<enum PieceType PT, enum Color CT>
 void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, int myking, U64 our_pieces, U64 enemy_pieces, const U64* all_pieces, U64 pp_o, U64 pp_d, std::vector<U32>& move_tgts) {
   for (; ps; ps &= ps-1) {
-    int p = __builtin_ctzll(ps);
+    int p = std::countr_zero(ps);
     U64 pinmask = makePinmask(p, pp_d, pp_o, blockers, myking, enemy_pieces & (all_pieces[QUEEN-1]|all_pieces[BISHOP-1]), enemy_pieces & (all_pieces[QUEEN-1]|all_pieces[ROOK-1]));
     U64 targets = bbPseudoLegalMoves<PT, CT>(p, checkmask & pinmask & ~our_pieces, blockers);
     if constexpr (PT == PAWN) {
@@ -167,7 +169,7 @@ void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, i
       emplaceNonCaptures(p, PAWN, t_non_caps, move_tgts);
     }
     else if constexpr (PT >= KNIGHT && PT <= QUEEN) {
-      int p = __builtin_ctzll(ps);  
+      int p = std::countr_zero(ps);  
       U64 t_caps = targets & enemy_pieces;
       U64 t_quiets = targets & ~enemy_pieces;
       emplaceCaptures(p, PT, enemy_pieces, all_pieces, t_caps, move_tgts);
@@ -184,14 +186,14 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
   const U64* piece_colors = pos.getPieceColors();
 
   U64 blockers = piece_colors[0] | piece_colors[1];
-  int myking = __builtin_ctzll(pieces[KING-1] & piece_colors[CT]); 
+  int myking = std::countr_zero(pieces[KING-1] & piece_colors[CT]); 
   U64 checkmask = 0xFFFFFFFFFFFFFFFFULL; // sneaky all bits set
 
   U64 checkers = squareAttackedBy<CTO>(myking, pos, 0);
   U64 king_file = files[myking % 8];
   U64 king_rank = ranks[myking / 8];
 
-  if (__builtin_popcountll(checkers) > 1) checkmask = 0; // if double check, we can skip all non-king moves
+  if (std::popcount(checkers) > 1) checkmask = 0; // if double check, we can skip all non-king moves
   else if (checkers) {
     enum PieceType checker_piece = pos.pieceAtSquare(checkers);
     switch(checker_piece) {
@@ -203,11 +205,11 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
         break;
       default:
         if ((king_file ^ king_rank) & checkers) {
-          checkmask = mt->rook_magics[__builtin_ctzll(checkers)].compute(blockers)
+          checkmask = mt->rook_magics[std::countr_zero(checkers)].compute(blockers)
                     & mt->rook_magics[myking].compute(blockers);
         }
         else {
-          checkmask = mt->bishop_magics[__builtin_ctzll(checkers)].compute(blockers)
+          checkmask = mt->bishop_magics[std::countr_zero(checkers)].compute(blockers)
                     & mt->bishop_magics[myking].compute(blockers);
         }
     }
@@ -243,7 +245,7 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
   // king moves
   U64 pseudo_king_moves = bbPseudoLegalMoves<KING, CT>(myking, ~piece_colors[CT], blockers);
   for (U64 tt = pseudo_king_moves; tt; tt &= tt-1) {
-    int t = __builtin_ctzll(tt);
+    int t = std::countr_zero(tt);
     if (squareAttackedBy<CTO>(t, pos, blockers ^ (1ULL << myking))) pseudo_king_moves &= ~(1ULL << t);
   }
   emplaceCaptures(myking, KING, piece_colors[CTO], pieces, pseudo_king_moves & piece_colors[CT^1], move_tgts);
@@ -256,10 +258,10 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
     U64 cst_qs = FILE_C & castle_targets;
     U64 cst_ks = FILE_G & castle_targets;
     if (cst_ks) {
-      move_tgts.emplace_back((64 * __builtin_ctzll(cst_ks) + myking) + CASTLES + MOVE_KING);
+      move_tgts.emplace_back((64 * std::countr_zero(cst_ks) + myking) + CASTLES + MOVE_KING);
     }
     if (cst_qs) {
-      move_tgts.emplace_back((64 * __builtin_ctzll(cst_qs) + myking) + CASTLES + MOVE_KING);
+      move_tgts.emplace_back((64 * std::countr_zero(cst_qs) + myking) + CASTLES + MOVE_KING);
     }
   }
   // en passant now
@@ -277,9 +279,9 @@ int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U3
       ep_ps = piece_colors[CT] & pieces[PAWN-1] & (((ep_bb << 7) & ~FILE_H) | ((ep_bb << 9) & ~FILE_A));      
     }
     for (; ep_ps; ep_ps &= ep_ps-1) {
-      int p = __builtin_ctzll(ep_ps);
+      int p = std::countr_zero(ep_ps);
       if (squareAttackedBy<CTO>(myking, pos, blockers ^ (1ULL << p) ^ ep_bb ^ ep_enemy_pawn)) continue;
-      move_tgts.emplace_back((64 * __builtin_ctzll(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
+      move_tgts.emplace_back((64 * std::countr_zero(ep_bb) + p) | ENPASSANT | MOVE_PAWN);
     }
   }
   return 0;

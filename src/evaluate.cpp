@@ -1,4 +1,7 @@
 
+#include <utility>
+#include <bit>
+
 #include "evaluate.h"
 
 namespace Wyvern {
@@ -102,8 +105,8 @@ int Evaluator::evalMaterialOnly(Position& pos){
   const U64* pcs = pos.getPieces();
   int total = 0;
   for (int i = 0; i < 5; ++i) {
-    total += pvals[i] * __builtin_popcountll(pcols[player] & pcs[i]);
-    total -= pvals[i] * __builtin_popcountll(pcols[opponent] & pcs[i]);
+    total += pvals[i] * std::popcount(pcols[player] & pcs[i]);
+    total -= pvals[i] * std::popcount(pcols[opponent] & pcs[i]);
   }
   //total += (int) (rand() % 101) - 50;
   return total;
@@ -112,10 +115,10 @@ int Evaluator::evalMaterialOnly(Position& pos){
 int Evaluator::totalMaterial(Position& pos) {
   const U64* pcs = pos.getPieces();
   int total_material = 0;
-  total_material += __builtin_popcountll(pcs[PAWN-1]);
-  total_material += 3*__builtin_popcountll(pcs[KNIGHT-1] | pcs[BISHOP-1]);
-  total_material += 5*__builtin_popcountll(pcs[ROOK-1]);
-  total_material += 9*__builtin_popcountll(pcs[QUEEN-1]);
+  total_material += std::popcount(pcs[PAWN-1]);
+  total_material += 3*std::popcount(pcs[KNIGHT-1] | pcs[BISHOP-1]);
+  total_material += 5*std::popcount(pcs[ROOK-1]);
+  total_material += 9*std::popcount(pcs[QUEEN-1]);
   return total_material;
 }
 
@@ -126,10 +129,10 @@ int Evaluator::evalPositional(Position& pos) {
   const U64* pcs = pos.getPieces();
   int total = 0;
   int total_material = totalMaterial(pos);
-  total_material += __builtin_popcountll(pcs[PAWN-1]);
-  total_material += 3*__builtin_popcountll(pcs[KNIGHT-1] | pcs[BISHOP-1]);
-  total_material += 5*__builtin_popcountll(pcs[ROOK-1]);
-  total_material += 9*__builtin_popcountll(pcs[QUEEN-1]);
+  total_material += std::popcount(pcs[PAWN-1]);
+  total_material += 3*std::popcount(pcs[KNIGHT-1] | pcs[BISHOP-1]);
+  total_material += 5*std::popcount(pcs[ROOK-1]);
+  total_material += 9*std::popcount(pcs[QUEEN-1]);
   
   constexpr int eg_mg_diff = midgame_material_limit - endgame_material_limit;
 
@@ -146,82 +149,82 @@ int Evaluator::evalPositional(Position& pos) {
                        : (eg_mg_diff * (total_material - endgame_material_limit)) / eg_mg_diff;
   
   for (U64 pawns = pcs[PAWN-1] & pcols[player] ; pawns ; pawns&=pawns-1) {
-    int p = __builtin_ctzll(pawns);
+    int p = std::countr_zero(pawns);
     total += psqvTableLookup(player, p, place_value_pawn);
     if (!(mt->passed_pawns[p + 64*player] & pcs[PAWN-1] & pcols[opponent])) total += passed_pawn_value;
   }
   for (U64 pawns = pcs[PAWN-1] & pcols[opponent] ; pawns ; pawns&=pawns-1) {
-    int p = __builtin_ctzll(pawns);
+    int p = std::countr_zero(pawns);
     total -= psqvTableLookup(opponent, p, place_value_pawn);
     if (!(mt->passed_pawns[p + 64*opponent] & pcs[PAWN-1] & pcols[player])) total -= passed_pawn_value;
 
   }
   
   for (U64 knights = pcs[KNIGHT-1] & pcols[player] ; knights ; knights&=knights-1) {
-    int p =__builtin_ctzll(knights);
+    int p =std::countr_zero(knights);
     total += psqvTableLookup(player, p, place_value_knight);
     U64 targets = mt->knight_table[p] & ~opp_pawn_cs;
-    total += (__builtin_popcountll(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
+    total += (std::popcount(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 knights = pcs[KNIGHT-1] & pcols[opponent] ; knights ; knights&=knights-1) {
-    int p = __builtin_ctzll(knights);
+    int p = std::countr_zero(knights);
     total -= psqvTableLookup(opponent, p, place_value_knight);
     U64 targets = mt->knight_table[p] & ~our_pawn_cs;
-    total -= (__builtin_popcountll(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
+    total -= (std::popcount(targets) * knight_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
   for (U64 bishops = pcs[BISHOP-1] & pcols[player] ; bishops ; bishops&=bishops-1) {
-    int p = __builtin_ctzll(bishops);
+    int p = std::countr_zero(bishops);
     total += psqvTableLookup(player,p, place_value_bishop);
     U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~opp_pawn_cs;
-    total += (__builtin_popcountll(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
+    total += (std::popcount(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 bishops = pcs[BISHOP-1] & pcols[opponent] ; bishops ; bishops&=bishops-1) {
-    int p = __builtin_ctzll(bishops);
+    int p = std::countr_zero(bishops);
     total -= psqvTableLookup(opponent,p, place_value_bishop);
     U64 targets = mt->bishop_magics[p].compute(bb_blockers) & ~our_pawn_cs;
-    total -= (__builtin_popcountll(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
+    total -= (std::popcount(targets) * bishop_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
   for (U64 rooks = pcs[ROOK-1] & pcols[player] ; rooks ; rooks&=rooks-1) {
-    int p = __builtin_ctzll(rooks);
+    int p = std::countr_zero(rooks);
     total += psqvTableLookup(player,p, place_value_rook);
     U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~opp_pawn_cs;
-    total += (__builtin_popcountll(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
+    total += (std::popcount(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 rooks = pcs[ROOK-1] & pcols[opponent] ; rooks ; rooks&=rooks-1) {
-    int p = __builtin_ctzll(rooks);
+    int p = std::countr_zero(rooks);
     total -= psqvTableLookup(opponent,p, place_value_rook);
     U64 targets = mt->rook_magics[p].compute(bb_blockers) & ~our_pawn_cs;
-    total -= (__builtin_popcountll(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
+    total -= (std::popcount(targets) * rook_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
   for (U64 queens = pcs[QUEEN-1] & pcols[player] ; queens ; queens&=queens-1) {
-    int p = __builtin_ctzll(queens);
+    int p = std::countr_zero(queens);
     total += psqvTableLookup(player,p, place_value_rook);
     U64 targets = (mt->rook_magics[p].compute(bb_blockers) |
                    mt->bishop_magics[p].compute(bb_blockers)) & ~opp_pawn_cs;
-    total += (__builtin_popcountll(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
+    total += (std::popcount(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
   }
   for (U64 queens = pcs[QUEEN-1] & pcols[opponent] ; queens ; queens&=queens-1) {
-    int p = __builtin_ctzll(queens);
+    int p = std::countr_zero(queens);
     total -= psqvTableLookup(opponent,p, place_value_rook);
     U64 targets = (mt->rook_magics[p].compute(bb_blockers) |
                    mt->bishop_magics[p].compute(bb_blockers)) & ~our_pawn_cs;
-    total -= (__builtin_popcountll(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
+    total -= (std::popcount(targets) * queen_mobility_factor * endgame_interp) / eg_mg_diff;
   }
 
-  int myking = __builtin_ctzll(pcs[KING-1] & pcols[player]);
+  int myking = std::countr_zero(pcs[KING-1] & pcols[player]);
   int kvals = endgame_interp * psqvTableLookup(player, myking, king_middle_game);
   kvals += (eg_mg_diff - endgame_interp) * psqvTableLookup(player, myking, king_end_game);
-  int opking = __builtin_ctzll(pcs[KING-1] & pcols[opponent]);
+  int opking = std::countr_zero(pcs[KING-1] & pcols[opponent]);
   kvals -= endgame_interp * psqvTableLookup(opponent, opking, king_middle_game);
   kvals -= (eg_mg_diff - endgame_interp) * psqvTableLookup(opponent, opking, king_end_game);
   total += kvals / eg_mg_diff;
 
   // space
-  total += __builtin_popcountll(our_pawn_cs & central_squares & side_territory[opponent]) * space_value;
-  total -= __builtin_popcountll(opp_pawn_cs & central_squares & side_territory[player]) * space_value;
+  total += std::popcount(our_pawn_cs & central_squares & side_territory[opponent]) * space_value;
+  total -= std::popcount(opp_pawn_cs & central_squares & side_territory[player]) * space_value;
 
   total += evalMaterialOnly(pos);
 
@@ -292,7 +295,7 @@ int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, i
     fromset = see_lvp(attadef, pcols[side], pcs, aPiece);
   }
   while(--d) {
-    gain[d-1] = -MAX_INT(-gain[d-1], gain[d]);
+    gain[d-1] = -std::max(-gain[d-1], gain[d]);
   }
 
   return gain[0];

@@ -12,10 +12,10 @@ void Position::zobristHash() {
         U64 white_ps = pieces[i] & whites;
         U64 black_ps = pieces[i] & blacks;
         for (;white_ps; white_ps &= white_ps-1) {
-            value ^= zobristNum(i, 0, __builtin_ctzll(white_ps));
+            value ^= zobristNum(i, 0, std::countr_zero(white_ps));
         }
         for (;black_ps; black_ps &= black_ps-1) {
-            value ^= zobristNum(i, 0, __builtin_ctzll(black_ps));
+            value ^= zobristNum(i, 0, std::countr_zero(black_ps));
         }
     }
     value ^= zobristEP(ep_square);
@@ -47,7 +47,7 @@ int Position::makeMove(U32 move) {
   if (special == ENPASSANT) {
     U64 ep_tgt = (tomove) ? tbb << 8 : tbb >> 8;
     // zobrist in our target, and out enemy pawn
-    zobrist ^= zobristNum(PAWN-1, tomove^1, __builtin_ctzll(ep_tgt));
+    zobrist ^= zobristNum(PAWN-1, tomove^1, std::countr_zero(ep_tgt));
     zobrist ^= zobristNum(PAWN-1, tomove, tsq);
     pieces[PAWN-1] ^= ibb ^ tbb ^ ep_tgt;
     piece_colors[tomove] ^= ibb ^ tbb;
@@ -250,7 +250,7 @@ void Position::printPretty() {
     }
     if (i <= 1) {
       for (int pt = 4; pt >= 0; pt--) {
-        for (int j = 0; j < __builtin_popcountll(pieces[pt] & piece_colors[i]); ++j) {
+        for (int j = 0; j < std::popcount(pieces[pt] & piece_colors[i]); ++j) {
           std::cout << (char) (piece_chars[pt+1] + ('a' - 'A')*i);
         }
       }
@@ -309,11 +309,11 @@ int Position::checkValidity() {
   }
   U64 wkingpos = pieces[KING-1] & piece_colors[COLOR_WHITE];
   U64 bkingpos = pieces[KING-1] & piece_colors[COLOR_BLACK];
-  if (__builtin_popcountll(wkingpos) != 1) {
+  if (std::popcount(wkingpos) != 1) {
     printbb(wkingpos);
     return 1;
   }
-  if (__builtin_popcountll(bkingpos) != 1) {
+  if (std::popcount(bkingpos) != 1) {
     printbb(bkingpos);
     return 1;
   }

@@ -89,10 +89,10 @@ U64 Search::perft(Position& pos, int depth, int* n_capts, int* n_enpass, int* n_
   const U64* pcols = pos.getPieceColors();
   const U64* pcs = pos.getPieces();
   enum Color ct = pos.getToMove();
-  int black_kp = __builtin_ctzll(pcs[KING-1] & pcols[1]);
-  int white_kp = __builtin_ctzll(pcs[KING-1] & pcols[0]);
-  //if (__builtin_popcountll(pcs[KING-1] & pcols[0]) != 1) return 1;
-  //if (__builtin_popcountll(pcs[KING-1] & pcols[1]) != 1) return 1;
+  int black_kp = std::countr_zero(pcs[KING-1] & pcols[1]);
+  int white_kp = std::countr_zero(pcs[KING-1] & pcols[0]);
+  //if (std::popcount(pcs[KING-1] & pcols[0]) != 1) return 1;
+  //if (std::popcount(pcs[KING-1] & pcols[1]) != 1) return 1;
   U64 bk_attack = movegen.squareAttackedBy<COLOR_WHITE>(black_kp, pos, 0);
   U64 wk_attack = movegen.squareAttackedBy<COLOR_BLACK>(white_kp, pos, 0);
 

@@ -1,6 +1,8 @@
 #ifndef H_GUARD_ZOBRIST
 #define H_GUARD_ZOBRIST
 
+#include <bit>
+
 #include "types.h"
 #include "utils.h"
 #include <iostream>
@@ -864,7 +866,7 @@ inline U64 zobristCR(enum CastlingRights cr) {
     cri &= 15;
     U64 ret = 0;
     while (cri) {
-        ret ^= zobrist_castling_rights[__builtin_ctz(cr)];
+        ret ^= zobrist_castling_rights[std::countr_zero(static_cast<U32>(cr))];
         cri &= cri - 1;
     }
     return ret;
@@ -872,7 +874,7 @@ inline U64 zobristCR(enum CastlingRights cr) {
 
 inline U64 zobristEP(U64 ep_bb) {
     if (!ep_bb) return 0;
-    return zobrist_epfiles[__builtin_ctzll(ep_bb) & 7];
+    return zobrist_epfiles[std::countr_zero(ep_bb) & 7];
 }
 
 inline U64 zobristToMove() {

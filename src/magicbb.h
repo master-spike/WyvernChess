@@ -1,6 +1,8 @@
 #ifndef H_GUARD_MAGIC
 #define H_GUARD_MAGIC
 
+#include <bit>
+
 #include "types.h"
 #include "utils.h"
 #include <memory>
@@ -188,7 +190,7 @@ U64 findMagicNum(int p) {
   U64 mask = getPremask<PT>(p);
   for (U64 k = 0; k < MAGIC_MAX_TRIALS; ++k) {
     U64 magic = rand64() & rand64() & rand64() ;
-    if (popCount64((magic*mask) & 0xFF00000000000000ULL) < 6) continue;
+    if (std::popcount((magic*mask) & 0xFF00000000000000ULL) < 6) continue;
     MagicBB mbb = MagicBB(p, magic, mask, bits);
     if (!mbb.initialise<PT>()) {
       //std::cout << "magic number " << p << " for " << ((PT == ROOK) ? "  rook" : "bishop") << " found in " << k+1 << " tries" << "\n";

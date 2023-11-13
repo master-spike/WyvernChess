@@ -68,7 +68,7 @@ namespace Wyvern {
     RANK_8 = RANK_1 << 56
   };
 
-  enum Bound : int{
+  enum Bound : int {
     BOUND_EXACT = 0,
     BOUND_UPPER = 1,
     BOUND_LOWER = -1,

@@ -1,6 +1,8 @@
 #ifndef H_GUARD_SEARCH
 #define H_GUARD_SEARCH
 
+#include <bit>
+
 #include "position.h"
 #include "types.h"
 #include "movegen.h"
@@ -142,9 +144,6 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
   ++node_count;
   constexpr enum Color CTO = (enum Color) (CT^1);
 
-
-
-
   std::vector<U32> moves;
   movegen.generateMoves<CT>(pos, true, moves);
   if (moves.size() == 0) {
@@ -181,7 +180,7 @@ BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool 
 
   std::vector<BoundedEval> b_evals(moves.size(), BoundedEval(BOUND_UPPER, -INT32_MAX));
 
-  BoundedEval best_evaluation;
+  BoundedEval best_evaluation(BOUND_UPPER, -INT32_MAX);
   // iterative deepening up to depth-2 to get promising move order 
   for (int id_d = 0; id_d < depth && difftime(time(nullptr), init_time) < time_limit; id_d++) {
     int t_alpha = alpha; // temporary value of alpha for ids
