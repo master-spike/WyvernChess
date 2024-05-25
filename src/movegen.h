@@ -180,6 +180,7 @@ void MoveGenerator::generateStandardMoves(U64 ps, U64 checkmask, U64 blockers, i
 
 template<enum Color CT>
 int MoveGenerator::generateMoves(Position& pos, bool incl_quiets, std::vector<U32>& move_tgts) {
+  move_tgts.reserve(32);
   constexpr enum Color CTO = (enum Color) (CT ^ 1); 
   if constexpr (CT > 1) return 0;
   const U64* pieces = pos.getPieces();

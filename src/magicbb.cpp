@@ -85,7 +85,7 @@ U64 MagicBB::compute(U64 blockers) {
   return table[blockers];
 }
 
-const U64 rook_magic_numbers[64] = {
+constexpr U64 rook_magic_numbers[64] = {
   0x8080008118604002ULL,
   0x4040100040002002ULL,
   0x0080100018e00380ULL,
@@ -152,7 +152,7 @@ const U64 rook_magic_numbers[64] = {
   0x0026002114058042ULL
 };
 
-const U64 bishop_magic_numbers[64] = {
+constexpr U64 bishop_magic_numbers[64] = {
   0x0420c80100408202ULL,
   0x1204311202260108ULL,
   0x2008208102030000ULL,
