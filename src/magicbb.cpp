@@ -70,14 +70,6 @@ MagicBB::MagicBB(int sq, U64 mg, U64 ms, int b){
   bits = b;
 }
 
-MagicBB::MagicBB(const MagicBB& in_mbb) {
-  square = in_mbb.square;
-  magicnum = in_mbb.magicnum;
-  mask = in_mbb.mask;
-  table = in_mbb.table;
-  bits = in_mbb.bits;
-}
-
 U64 MagicBB::compute(U64 blockers) {
   blockers &= mask;
   blockers *= magicnum;

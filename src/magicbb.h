@@ -22,12 +22,15 @@ private:
 public:
   MagicBB() = default;
   MagicBB(int sq, U64 mg, U64 ms, int b);
-  MagicBB(const MagicBB& in_mbb);
   U64 compute(U64 blockers);
   ~MagicBB() = default;
+  MagicBB(MagicBB const&) = default;
+  MagicBB(MagicBB&&) = default;
+  MagicBB& operator=(MagicBB const&) = default;
+  MagicBB& operator=(MagicBB&&) = default;
   template<enum PieceType PT>
   int initialise() {
-    if (PT != ROOK && PT != BISHOP) return 1;
+    if constexpr (PT != ROOK && PT != BISHOP) return 1;
     //printSq(square); std::cout << std::endl;
     //printbb(mask);
     table = std::vector<U64>(1 << bits, 0);

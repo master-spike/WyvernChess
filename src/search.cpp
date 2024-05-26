@@ -6,7 +6,7 @@ namespace Wyvern {
 template BoundedEval Search::negamax<COLOR_WHITE>(Position&, int, int, int, bool, int);
 template BoundedEval Search::negamax<COLOR_BLACK>(Position&, int, int, int, bool, int);
 
-U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, int max_depth_hard, int& out_eval) {
+U32 Search::bestmove(Position pos, double t_limit, int max_basic_depth, [[maybe_unused]] int max_depth_hard, int& out_eval) {
   current_depth = 0;
   max_depth = 0;
   node_count = 0;

@@ -88,7 +88,7 @@ int main() {
         time_t t0 = time(nullptr);
         Wyvern::Search my_search;
         pos.printPretty();
-        int result;
+        int result = 0;
         U32 chosen_move = my_search.bestmove(pos, 15, 7, 14, result);
         std::cout << std::dec << "Static evaluation "
                   << (-2 * pos.getToMove() + 1) * evaluator.evalPositional(pos)
