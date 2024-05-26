@@ -98,7 +98,7 @@ int psqvTableLookup(enum Color ct, int p, const int* table) {
   else return table[(p & 7) + 56 - (p&56)];
 }
 
-int Evaluator::evalMaterialOnly(Position& pos){
+int Evaluator::evalMaterialOnly(Position const& pos){
   enum Color player = pos.getToMove();
   enum Color opponent = (player == COLOR_BLACK) ? COLOR_WHITE : COLOR_BLACK;
   const U64* pcols = pos.getPieceColors();
@@ -112,7 +112,7 @@ int Evaluator::evalMaterialOnly(Position& pos){
   return total;
 }
 
-int Evaluator::totalMaterial(Position& pos) {
+int Evaluator::totalMaterial(Position const& pos) {
   const U64* pcs = pos.getPieces();
   int total_material = 0;
   total_material += std::popcount(pcs[PAWN-1]);
@@ -122,7 +122,7 @@ int Evaluator::totalMaterial(Position& pos) {
   return total_material;
 }
 
-int Evaluator::evalPositional(Position& pos) {
+int Evaluator::evalPositional(Position const& pos) {
   enum Color player = pos.getToMove();
   enum Color opponent = (player == COLOR_BLACK) ? COLOR_WHITE : COLOR_BLACK;
   const U64* pcols = pos.getPieceColors();
@@ -252,7 +252,7 @@ static U64 see_lvp(U64 attadef, U64 side_pcs, const U64* pieceBB, enum PieceType
 }
 
 // based on https://www.chessprogramming.org/SEE_-_The_Swap_Algorithm
-int Evaluator::see(Position& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side)
+int Evaluator::see(Position const& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side)
 {
   side &= 1;
   enum PieceType aPiece = piece;

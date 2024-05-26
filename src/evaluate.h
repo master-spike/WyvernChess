@@ -30,20 +30,20 @@ private:
 
 public:
   Evaluator() = delete;
-  int evalMaterialOnly(Position& pos);
-  int totalMaterial(Position &pos);
-  int evalPositional(Position &pos);
+  int evalMaterialOnly(Position const& pos);
+  int totalMaterial(Position const& pos);
+  int evalPositional(Position const& pos);
   Evaluator(std::shared_ptr<MagicTable> mt);
   ~Evaluator() = default;
   Evaluator(Evaluator& evaluator) = delete;
   
   template<enum Color CT>
-  int seeCapture(Position& pos, U32 capture);
-  int see(Position& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side);
+  int seeCapture(Position const& pos, U32 capture);
+  int see(Position const& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side);
 };
 
 template<enum Color CT>
-int Evaluator::seeCapture(Position& pos, U32 capture) {
+int Evaluator::seeCapture(Position const& pos, U32 capture) {
   if (!(capture & YES_CAPTURE)) return 0;
   
   enum PieceType target = (enum PieceType) ((capture >> 17) & 7);
