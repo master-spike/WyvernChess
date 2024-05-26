@@ -2,7 +2,7 @@
 #define H_GUARD_TRANSPOSITION
 
 #include "types.h"
-#define TRANSPOSITION_TABLE_DEFAULT_BITS 22; // ~100MB
+#define TRANSPOSITION_TABLE_DEFAULT_BITS 23; // ~200MB
 
 namespace Wyvern {
 
@@ -12,14 +12,15 @@ private:
     U64 zobrist_key;
     BoundedEval value;
     int depth;
-    Entry() = default;
+    Entry() {
+      depth = -1;
+      zobrist_key = 0;
+    }
     Entry(U64 zk, BoundedEval v, int d) {
       zobrist_key = zk;
       value = v;
       depth = d;
     }
-    ~Entry() = default;
-    Entry(Entry& e) = delete;
   };
   int bits;
   size_t size;
@@ -36,7 +37,10 @@ public:
 
   TranspositionTable(int b);
   ~TranspositionTable();
-  TranspositionTable(TranspositionTable& tt) = delete;
+  TranspositionTable(TranspositionTable&& tt) = delete;
+  TranspositionTable operator=(TranspositionTable&&) = delete;
+  TranspositionTable operator=(TranspositionTable const& tt) = delete;
+  TranspositionTable(TranspositionTable const& tt) = delete;
 
 };
 
