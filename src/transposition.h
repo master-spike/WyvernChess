@@ -1,6 +1,8 @@
 #ifndef H_GUARD_TRANSPOSITION
 #define H_GUARD_TRANSPOSITION
 
+#include <cstddef>
+
 #include "types.h"
 #define TRANSPOSITION_TABLE_DEFAULT_BITS 23; // ~200MB
 

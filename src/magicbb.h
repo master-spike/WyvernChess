@@ -12,6 +12,9 @@
 namespace Wyvern 
 {
 
+template<enum PieceType PT>
+U64 generateAttacks(int p, U64 blockers);
+
 class MagicBB {
 private:
   int square;

@@ -5,15 +5,11 @@
 
 #include "types.h"
 #include "utils.h"
-#include <iostream>
-#include <iomanip>
 #include "position.h"
 
 namespace Wyvern {
 
-
-
-void randomiseZobristNumbers(U64* ptr, int count, std::string name);
+inline constexpr U64 zobristNum();
 
 const U64 zobrist_white_pawn[64] = {
   0x4873986923c64567ULL,

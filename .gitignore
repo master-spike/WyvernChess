@@ -1,7 +1,35 @@
-.vscode/
-*.o
-main
-perf.data
+# Build directories
 build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# CMake tooling
+compile_commands.json
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+main
+wyvernchess
+
+# Profiling and generated data
+perf.data
+perf.data.old
 utilities/
 objects/
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

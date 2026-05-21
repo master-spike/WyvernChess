@@ -2,7 +2,6 @@
 #define H_GUARD_TYPES
 
 #include <cstdint>
-#include <cstdlib>
 
 
 typedef uint64_t U64;
@@ -19,12 +18,12 @@ namespace Wyvern {
   enum MoveCapture : U32 {
     NO_CAPTURE = 0,
     YES_CAPTURE = 1<<16,
-    CAPTURE_PAWN = (PAWN << 17) | YES_CAPTURE,
-    CAPTURE_KNIGHT = (KNIGHT << 17) | YES_CAPTURE,
-    CAPTURE_BISHOP = (BISHOP << 17) | YES_CAPTURE,
-    CAPTURE_ROOK = (ROOK << 17) | YES_CAPTURE,
-    CAPTURE_QUEEN = (QUEEN << 17) | YES_CAPTURE,
-    CAPTURE_KING = (KING << 17) | YES_CAPTURE
+    CAPTURE_PAWN = (U32(PAWN) << 17) | YES_CAPTURE,
+    CAPTURE_KNIGHT = (U32(KNIGHT) << 17) | YES_CAPTURE,
+    CAPTURE_BISHOP = (U32(BISHOP) << 17) | YES_CAPTURE,
+    CAPTURE_ROOK = (U32(ROOK) << 17) | YES_CAPTURE,
+    CAPTURE_QUEEN = (U32(QUEEN) << 17) | YES_CAPTURE,
+    CAPTURE_KING = (U32(KING) << 17) | YES_CAPTURE
   };
   enum MovePiece  : U32 {
     MOVE_PAWN = PAWN << 20,
