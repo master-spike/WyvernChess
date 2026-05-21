@@ -1,48 +1,42 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include "types.h"
-#define TRANSPOSITION_TABLE_DEFAULT_BITS 23; // ~200MB
 
-namespace Wyvern {
+namespace Wyvern
+{
 
-class TranspositionTable {
+class TranspositionTable
+{
 private:
-  struct Entry {
-    U64 zobrist_key;
-    BoundedEval value;
-    int depth;
-    Entry() {
-      depth = -1;
-      zobrist_key = 0;
-    }
-    Entry(U64 zk, BoundedEval v, int d) {
-      zobrist_key = zk;
-      value = v;
-      depth = d;
-    }
+  static constexpr int default_bits = 23; // ~200MB
+
+  struct Entry
+  {
+    U64 zobrist_key = 0;
+    BoundedEval value = BoundedEval(BOUND_INVALID, 0);
+    int depth = -1;
+
+    Entry() = default;
+    Entry(U64 zk, BoundedEval v, int d) : zobrist_key(zk), value(v), depth(d) {}
   };
+
   int bits;
-  size_t size;
-  Entry *table;
+  std::vector<Entry> table;
 
 public:
   BoundedEval lookup(U64 key, int depth);
   void insert(U64 key, BoundedEval value, int depth);
 
-  TranspositionTable() {
-    bits = TRANSPOSITION_TABLE_DEFAULT_BITS;
-    size = 1ULL << bits;
-    table = new Entry[size];
-  }
-
-  TranspositionTable(int b);
-  ~TranspositionTable();
-  TranspositionTable(TranspositionTable &&tt) = delete;
-  TranspositionTable operator=(TranspositionTable &&) = delete;
-  TranspositionTable operator=(TranspositionTable const &tt) = delete;
-  TranspositionTable(TranspositionTable const &tt) = delete;
+  TranspositionTable() : TranspositionTable(default_bits) {}
+  explicit TranspositionTable(int b);
+  ~TranspositionTable() = default;
+  TranspositionTable(TranspositionTable&& tt) noexcept = default;
+  TranspositionTable& operator=(TranspositionTable&&) noexcept = default;
+  TranspositionTable& operator=(TranspositionTable const& tt) = delete;
+  TranspositionTable(TranspositionTable const& tt) = delete;
 };
 
 } // namespace Wyvern

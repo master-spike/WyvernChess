@@ -2,15 +2,22 @@
 
 #include <cstdint>
 
-typedef uint64_t U64;
-typedef uint32_t U32;
-typedef uint16_t U16;
-typedef uint8_t U8;
+using U64 = uint64_t;
+using U32 = uint32_t;
+using U16 = uint16_t;
+using U8 = uint8_t;
 
-namespace Wyvern {
+namespace Wyvern
+{
 
-enum Color { COLOR_WHITE = 0, COLOR_BLACK = 1, COL_UNDEF = 2 };
-enum PieceType {
+enum Color
+{
+  COLOR_WHITE = 0,
+  COLOR_BLACK = 1,
+  COL_UNDEF = 2
+};
+enum PieceType
+{
   PIECE_NONE,
   PAWN,
   KNIGHT,
@@ -20,15 +27,21 @@ enum PieceType {
   KING,
   INVALID = 8
 };
-enum Move : U32 { MOVE_NONE = 0, MOVE_NULL = 65 };
-enum MoveType : U32 {
+enum Move : U32
+{
+  MOVE_NONE = 0,
+  MOVE_NULL = 65
+};
+enum MoveType : U32
+{
   NORMAL = 0,
   PROMO = 1 << 14,
   ENPASSANT = 2 << 14,
   CASTLES = 3 << 14,
   MOVE_SPECIAL = 3 << 14
 };
-enum MoveCapture : U32 {
+enum MoveCapture : U32
+{
   NO_CAPTURE = 0,
   YES_CAPTURE = 1 << 16,
   CAPTURE_PAWN = (U32(PAWN) << 17) | YES_CAPTURE,
@@ -38,7 +51,8 @@ enum MoveCapture : U32 {
   CAPTURE_QUEEN = (U32(QUEEN) << 17) | YES_CAPTURE,
   CAPTURE_KING = (U32(KING) << 17) | YES_CAPTURE
 };
-enum MovePiece : U32 {
+enum MovePiece : U32
+{
   MOVE_PAWN = PAWN << 20,
   MOVE_KNIGHT = KNIGHT << 20,
   MOVE_BISHOP = BISHOP << 20,
@@ -47,7 +61,8 @@ enum MovePiece : U32 {
   MOVE_KING = KING << 20,
   MOVE_ALL_PIECES = 7 << 20
 };
-enum CastlingRights : U16 {
+enum CastlingRights : U16
+{
   CR_NONE = 0,
   CR_WK = 1,
   CR_WQ = 2,
@@ -63,7 +78,8 @@ enum CastlingRights : U16 {
   CR_UNDEF = 16
 };
 
-enum File : U64 {
+enum File : U64
+{
   FILE_A = 0x0101010101010101ULL,
   FILE_B = FILE_A << 1,
   FILE_C = FILE_A << 2,
@@ -73,7 +89,8 @@ enum File : U64 {
   FILE_G = FILE_A << 6,
   FILE_H = FILE_A << 7
 };
-enum Rank : U64 {
+enum Rank : U64
+{
   RANK_1 = 0xFFULL,
   RANK_2 = RANK_1 << 8,
   RANK_3 = RANK_1 << 16,
@@ -84,34 +101,39 @@ enum Rank : U64 {
   RANK_8 = RANK_1 << 56
 };
 
-enum Bound : int {
+enum Bound : int
+{
   BOUND_EXACT = 0,
   BOUND_UPPER = 1,
   BOUND_LOWER = -1,
   BOUND_INVALID = 2
 };
 
-struct BoundedEval {
+struct BoundedEval
+{
   enum Bound bound;
   int eval;
-  BoundedEval operator-() { return BoundedEval((enum Bound)(-bound), -eval); }
-  bool operator==(BoundedEval &bv) {
+  BoundedEval operator-() const
+  {
+    return BoundedEval((enum Bound)(-bound), -eval);
+  }
+  bool operator==(const BoundedEval& bv) const
+  {
     if (bound != bv.bound)
       return false;
     if (eval != bv.eval)
       return false;
     return true;
   }
-  BoundedEval(enum Bound b, int e) {
+  BoundedEval(enum Bound b, int e)
+  {
     bound = b;
     eval = e;
   }
   BoundedEval() = default;
 };
 
-const U64 files[8] = {FILE_A, FILE_B, FILE_C, FILE_D,
-                      FILE_E, FILE_F, FILE_G, FILE_H};
-const U64 ranks[8] = {RANK_1, RANK_2, RANK_3, RANK_4,
-                      RANK_5, RANK_6, RANK_7, RANK_8};
+const U64 files[8] = {FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H};
+const U64 ranks[8] = {RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
 
 } // namespace Wyvern

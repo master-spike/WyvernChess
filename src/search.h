@@ -7,22 +7,23 @@
 #include "types.h"
 #include <ctime>
 
-namespace Wyvern {
+namespace Wyvern
+{
 
 constexpr int qs_depth_hardlimit = 30;
 
-class Search {
+class Search
+{
 private:
   std::shared_ptr<MagicTable> mt;
   Evaluator evaluator;
   MoveGenerator movegen;
-  void sortMoves(std::vector<U32> &moves, std::vector<BoundedEval> &evals);
-  template <enum Color CT>
-  BoundedEval quiesce(Position pos, int alpha, int beta, int depth_hard);
+  void sortMoves(std::vector<U32>& moves, std::vector<BoundedEval>& evals);
+  template <enum Color CT> BoundedEval quiesce(Position pos, int alpha, int beta, int depth_hard);
   time_t init_time;
   time_t time_limit;
-  BoundedEval bestEvalInVector(std::vector<BoundedEval> &b_evals);
-  bool checkThreeReps(const Position &pos);
+  BoundedEval bestEvalInVector(std::vector<BoundedEval>& b_evals);
+  bool checkThreeReps(const Position& pos);
   U64 node_count;
   U64 node_count_qs;
   U64 table_hits;
@@ -34,18 +35,18 @@ private:
 
 public:
   Search();
-  U32 bestmove(Position pos, double t_limit, int max_basic_depth,
-               int max_depth_hard, int &out_eval);
+  U32 bestmove(Position pos, double t_limit, int max_basic_depth, int max_depth_hard,
+               int& out_eval);
   template <enum Color CT>
-  BoundedEval negamax(Position &pos, int depth, int alpha, int beta,
-                      bool do_quiesce, int d_max);
+  BoundedEval negamax(Position& pos, int depth, int alpha, int beta, bool do_quiesce, int d_max);
   ~Search() = default;
-  U64 perft(Position &pos, int depth, int *n_capts, int *n_enpass, int *n_promo,
-            int *n_castles, int *checks);
+  U64 perft(Position& pos, int depth, int* n_capts, int* n_enpass, int* n_promo, int* n_castles,
+            int* checks);
 };
 
 template <enum Color CT>
-BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
+BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard)
+{
   if (current_depth > max_depth)
     max_depth = current_depth;
   ++node_count;
@@ -64,10 +65,10 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
 
   int stand_pat_initial = stand_pat;
 
-  if (moves.size() == 0) {
+  if (moves.size() == 0)
+  {
     std::vector<U32> temp;
-    movegen.generateMoves<CT>(
-        pos, true, temp); // generate more moves to check for mate/stalemate
+    movegen.generateMoves<CT>(pos, true, temp); // generate more moves to check for mate/stalemate
     if (checks && temp.size() == 0)
       return BoundedEval(BOUND_EXACT, -INT32_MAX);
     if (temp.size() == 0)
@@ -83,7 +84,8 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   alpha = (alpha > stand_pat) ? alpha : stand_pat; // baseline score
   enum Bound bound = (alpha > stand_pat) ? BOUND_UPPER : BOUND_EXACT;
 
-  if (depth_hard == 0 && !checks) {
+  if (depth_hard == 0 && !checks)
+  {
     return BoundedEval(bound, stand_pat);
   }
 
@@ -91,19 +93,23 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   // or exact this logic is needed if we are using aspirational windows must
   // always come after move generation for checkmate test due to zobrist hash
   // collision possibility
-  if (current_depth - qs_entry_depth < 4) {
+  if (current_depth - qs_entry_depth < 4)
+  {
     BoundedEval table_lookup = ttable.lookup(pos.getZobrist(), 0);
-    if (!(table_lookup.bound & BOUND_INVALID)) {
+    if (table_lookup.bound != BOUND_INVALID)
+    {
       ++table_hits;
       if (table_lookup.bound == BOUND_EXACT)
         return table_lookup;
-      if (table_lookup.bound == BOUND_UPPER) {
+      if (table_lookup.bound == BOUND_UPPER)
+      {
         if (table_lookup.eval <= alpha)
           return table_lookup;
         if (table_lookup.eval <= beta)
           beta = table_lookup.eval;
       }
-      if (table_lookup.bound == BOUND_LOWER) {
+      if (table_lookup.bound == BOUND_LOWER)
+      {
         if (table_lookup.eval >= beta)
           return table_lookup;
         if (table_lookup.eval >= alpha)
@@ -113,18 +119,22 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   }
 
   // now we do captures.
-  for (U32 move : moves) {
+  for (U32 move : moves)
+  {
 
-    if (!checks && (move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO)) {
+    if (!checks && (move & YES_CAPTURE) && !((move & MOVE_SPECIAL) == PROMO))
+    {
       // skip bad captures - delta pruning outside the endgame, or <0 any time
       pos.makeMove(move);
       U64 move_is_check = movegen.inCheck(pos);
       pos.unmakeMove();
-      if (!move_is_check) {
+      if (!move_is_check)
+      {
         int seeval = evaluator.seeCapture<CT>(pos, move);
         if (seeval < -100)
           continue;
-        if (evaluator.totalMaterial(pos) > endgame_material_limit) {
+        if (evaluator.totalMaterial(pos) > endgame_material_limit)
+        {
           int delta = seeval + stand_pat_initial + 230;
           if (delta < alpha)
             continue;
@@ -147,7 +157,8 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
     stand_pat = (val.eval > stand_pat) ? val.eval : stand_pat;
     if (val.eval >= alpha)
       bound = BOUND_EXACT;
-    if (alpha >= beta) {
+    if (alpha >= beta)
+    {
       // std::cout << "cutoff" << std::endl;
       bound = BOUND_LOWER;
       break;
@@ -159,8 +170,9 @@ BoundedEval Search::quiesce(Position pos, int alpha, int beta, int depth_hard) {
   return BoundedEval(bound, stand_pat);
 }
 template <enum Color CT>
-BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
-                            bool do_quiesce, int d_max) {
+BoundedEval Search::negamax(Position& pos, int depth, int alpha, int beta, bool do_quiesce,
+                            int d_max)
+{
 
   if (current_depth > max_depth)
     max_depth = current_depth;
@@ -169,7 +181,8 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
 
   std::vector<U32> moves;
   movegen.generateMoves<CT>(pos, true, moves);
-  if (moves.size() == 0) {
+  if (moves.size() == 0)
+  {
     if (movegen.inCheck(pos))
       return BoundedEval(BOUND_EXACT, -INT32_MAX);
     return BoundedEval(BOUND_EXACT, 0);
@@ -184,17 +197,20 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
   // always come after move generation for checkmate test due to zobrist hash
   // collision possibility
   BoundedEval table_lookup = ttable.lookup(pos.getZobrist(), depth);
-  if (!(table_lookup.bound & BOUND_INVALID)) {
+  if (table_lookup.bound != BOUND_INVALID)
+  {
     ++table_hits;
     if (table_lookup.bound == BOUND_EXACT)
       return table_lookup;
-    if (table_lookup.bound == BOUND_UPPER) {
+    if (table_lookup.bound == BOUND_UPPER)
+    {
       if (table_lookup.eval <= alpha)
         return table_lookup;
       if (table_lookup.eval <= beta)
         beta = table_lookup.eval;
     }
-    if (table_lookup.bound == BOUND_LOWER) {
+    if (table_lookup.bound == BOUND_LOWER)
+    {
       if (table_lookup.eval >= beta)
         return table_lookup;
       if (table_lookup.eval >= alpha)
@@ -202,30 +218,31 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
     }
   }
 
-  if (depth == 0 || d_max == 0) {
+  if (depth == 0 || d_max == 0)
+  {
     if (!do_quiesce)
       return BoundedEval(BOUND_EXACT, evaluator.evalPositional(pos));
     qs_entry_depth = current_depth;
     return quiesce<CT>(pos, alpha, beta, qs_depth_hardlimit);
   }
 
-  std::vector<BoundedEval> b_evals(moves.size(),
-                                   BoundedEval(BOUND_UPPER, -INT32_MAX));
+  std::vector<BoundedEval> b_evals(moves.size(), BoundedEval(BOUND_UPPER, -INT32_MAX));
 
   BoundedEval best_evaluation(BOUND_UPPER, -INT32_MAX);
   // iterative deepening up to depth-2 to get promising move order
-  for (int id_d = 0;
-       id_d < depth && difftime(time(nullptr), init_time) < time_limit;
-       id_d++) {
+  for (int id_d = 0; id_d < depth && difftime(time(nullptr), init_time) < time_limit; id_d++)
+  {
     int t_alpha = alpha; // temporary value of alpha for ids
     int i = 0;
     BoundedEval best_eval_id(BOUND_UPPER, -INT32_MAX);
-    for (U32 move : moves) {
+    for (U32 move : moves)
+    {
 
       current_depth++;
       int extension = 0;
 
-      if (move & YES_CAPTURE) {
+      if (move & YES_CAPTURE)
+      {
         // check see for good capture
         if (evaluator.seeCapture<CT>(pos, move) >= 0)
           extension = 1;
@@ -246,13 +263,13 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
 
       // do not do lmr on good captures, checks, check evasions, shallow depth
       // searches, early moves.
-      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 &&
-          id_d > 1) {
+      if (!extension && !((move & MOVE_SPECIAL) == PROMO) && i >= 4 && id_d > 1)
+      {
         lmr = true;
-        extension = (id_d > 2) & (i > 15) ? -2 : -1;
+        extension = (id_d > 2 && i > 15) ? -2 : -1;
 
-        if (b_evals[i].eval < t_alpha && id_d >= 3 &&
-            i >= (int)moves.size() / 2) {
+        if (b_evals[i].eval < t_alpha && id_d >= 3 && i >= (int)moves.size() / 2)
+        {
           i++;
           current_depth--;
           pos.unmakeMove();
@@ -260,10 +277,11 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
         }
       }
 
-      BoundedEval val = -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha,
-                                      do_quiesce, d_max - 1);
+      BoundedEval val =
+        -negamax<CTO>(pos, id_d + extension, -beta, -t_alpha, do_quiesce, d_max - 1);
 
-      if (val.eval >= t_alpha && lmr) {
+      if (val.eval >= t_alpha && lmr)
+      {
         // if not a bad looking move re-search at unreduced depth for late move
         // reductions
         extension = 0;
@@ -277,7 +295,8 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
       if (val.eval >= INT32_MAX - 40)
         val.eval--;
 
-      if (difftime(time(nullptr), init_time) >= time_limit) {
+      if (difftime(time(nullptr), init_time) >= time_limit)
+      {
         break;
       }
       b_evals[i] = val;
@@ -285,13 +304,15 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
         t_alpha = val.eval;
       if (val.eval >= best_eval_id.eval)
         best_eval_id = val;
-      if (t_alpha >= beta && id_d > 0) {
+      if (t_alpha >= beta && id_d > 0)
+      {
         b_evals[i].bound = BOUND_LOWER;
         break; // either continue ids or
       }
       i++;
     }
-    if (difftime(time(nullptr), init_time) >= time_limit) {
+    if (difftime(time(nullptr), init_time) >= time_limit)
+    {
       break;
     }
     best_evaluation = best_eval_id;

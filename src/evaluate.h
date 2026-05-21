@@ -6,7 +6,8 @@
 #include "utils.h"
 #include <memory>
 
-namespace Wyvern {
+namespace Wyvern
+{
 
 constexpr int pval_pawn = 100;
 constexpr int pval_knight = 315;
@@ -14,15 +15,16 @@ constexpr int pval_bishop = 330;
 constexpr int pval_rook = 500;
 constexpr int pval_queen = 900;
 
-constexpr int pvals[6] = {pval_pawn,  pval_knight, pval_bishop, pval_rook,
-                          pval_queen, 20000}; // king has absurd value for see
+constexpr int pvals[6] = {pval_pawn, pval_knight, pval_bishop,
+                          pval_rook, pval_queen,  20000}; // king has absurd value for see
 
 constexpr int endgame_material_limit = 20;
 constexpr int midgame_material_limit = 46;
 
 // evaluates position for player to move
 
-class Evaluator {
+class Evaluator
+{
 private:
   // 0-63 for white, 64-127 for black
   // U64 bb_passed_pawns[128];
@@ -30,20 +32,20 @@ private:
 
 public:
   Evaluator() = delete;
-  int evalMaterialOnly(Position const &pos);
-  int totalMaterial(Position const &pos);
-  int evalPositional(Position const &pos);
+  int evalMaterialOnly(Position const& pos);
+  int totalMaterial(Position const& pos);
+  int evalPositional(Position const& pos);
   Evaluator(std::shared_ptr<MagicTable> mt);
   ~Evaluator() = default;
-  Evaluator(Evaluator &evaluator) = delete;
+  Evaluator(Evaluator& evaluator) = delete;
 
-  template <enum Color CT> int seeCapture(Position const &pos, U32 capture);
-  int see(Position const &pos, enum PieceType piece, enum PieceType target,
-          int frsq, int tosq, int side);
+  template <enum Color CT> int seeCapture(Position const& pos, U32 capture);
+  int see(Position const& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq,
+          int side);
 };
 
-template <enum Color CT>
-int Evaluator::seeCapture(Position const &pos, U32 capture) {
+template <enum Color CT> int Evaluator::seeCapture(Position const& pos, U32 capture)
+{
   if (!(capture & YES_CAPTURE))
     return 0;
 
