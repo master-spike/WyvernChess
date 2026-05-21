@@ -1,5 +1,4 @@
-#ifndef H_GUARD_TRANSPOSITION
-#define H_GUARD_TRANSPOSITION
+#pragma once
 
 #include <cstddef>
 
@@ -26,11 +25,12 @@ private:
   };
   int bits;
   size_t size;
-  Entry* table;
+  Entry *table;
+
 public:
   BoundedEval lookup(U64 key, int depth);
   void insert(U64 key, BoundedEval value, int depth);
-  
+
   TranspositionTable() {
     bits = TRANSPOSITION_TABLE_DEFAULT_BITS;
     size = 1ULL << bits;
@@ -39,13 +39,10 @@ public:
 
   TranspositionTable(int b);
   ~TranspositionTable();
-  TranspositionTable(TranspositionTable&& tt) = delete;
-  TranspositionTable operator=(TranspositionTable&&) = delete;
-  TranspositionTable operator=(TranspositionTable const& tt) = delete;
-  TranspositionTable(TranspositionTable const& tt) = delete;
-
+  TranspositionTable(TranspositionTable &&tt) = delete;
+  TranspositionTable operator=(TranspositionTable &&) = delete;
+  TranspositionTable operator=(TranspositionTable const &tt) = delete;
+  TranspositionTable(TranspositionTable const &tt) = delete;
 };
 
-}
-
-#endif
+} // namespace Wyvern

@@ -1,5 +1,4 @@
-#ifndef H_GUARD_SEARCH
-#define H_GUARD_SEARCH
+#pragma once
 
 #include "evaluate.h"
 #include "movegen.h"
@@ -305,5 +304,3 @@ BoundedEval Search::negamax(Position &pos, int depth, int alpha, int beta,
 }
 
 } // namespace Wyvern
-
-#endif

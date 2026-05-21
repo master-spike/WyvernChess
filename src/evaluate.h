@@ -1,10 +1,9 @@
-#ifndef H_GUARD_EVALUATE
-#define H_GUARD_EVALUATE
+#pragma once
 
-#include "position.h"
-#include "utils.h"
-#include "types.h"
 #include "magicbb.h"
+#include "position.h"
+#include "types.h"
+#include "utils.h"
 #include <memory>
 
 namespace Wyvern {
@@ -15,7 +14,8 @@ constexpr int pval_bishop = 330;
 constexpr int pval_rook = 500;
 constexpr int pval_queen = 900;
 
-constexpr int pvals[6] = {pval_pawn,pval_knight,pval_bishop,pval_rook,pval_queen, 20000}; // king has absurd value for see
+constexpr int pvals[6] = {pval_pawn,  pval_knight, pval_bishop, pval_rook,
+                          pval_queen, 20000}; // king has absurd value for see
 
 constexpr int endgame_material_limit = 20;
 constexpr int midgame_material_limit = 46;
@@ -30,32 +30,29 @@ private:
 
 public:
   Evaluator() = delete;
-  int evalMaterialOnly(Position const& pos);
-  int totalMaterial(Position const& pos);
-  int evalPositional(Position const& pos);
+  int evalMaterialOnly(Position const &pos);
+  int totalMaterial(Position const &pos);
+  int evalPositional(Position const &pos);
   Evaluator(std::shared_ptr<MagicTable> mt);
   ~Evaluator() = default;
-  Evaluator(Evaluator& evaluator) = delete;
-  
-  template<enum Color CT>
-  int seeCapture(Position const& pos, U32 capture);
-  int see(Position const& pos, enum PieceType piece, enum PieceType target, int frsq, int tosq, int side);
+  Evaluator(Evaluator &evaluator) = delete;
+
+  template <enum Color CT> int seeCapture(Position const &pos, U32 capture);
+  int see(Position const &pos, enum PieceType piece, enum PieceType target,
+          int frsq, int tosq, int side);
 };
 
-template<enum Color CT>
-int Evaluator::seeCapture(Position const& pos, U32 capture) {
-  if (!(capture & YES_CAPTURE)) return 0;
-  
-  enum PieceType target = (enum PieceType) ((capture >> 17) & 7);
-  enum PieceType aPiece = (enum PieceType) ((capture >> 20) & 7);
+template <enum Color CT>
+int Evaluator::seeCapture(Position const &pos, U32 capture) {
+  if (!(capture & YES_CAPTURE))
+    return 0;
+
+  enum PieceType target = (enum PieceType)((capture >> 17) & 7);
+  enum PieceType aPiece = (enum PieceType)((capture >> 20) & 7);
   int frsq = capture & 63;
   int tosq = (capture >> 6) & 63;
 
-  return see(pos, aPiece, target, frsq, tosq, (int) CT);
+  return see(pos, aPiece, target, frsq, tosq, (int)CT);
 }
 
-}
-
-
-
-#endif
+} // namespace Wyvern
