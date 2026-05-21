@@ -4,7 +4,7 @@ WyvernChess is a C++20 chess engine built with CMake.
 
 ## Requirements
 
-- CMake 3.10 or newer
+- CMake 3.16 or newer
 - A C++20-capable compiler
 
 ## Build
@@ -24,6 +24,20 @@ build/wyvernchess
 
 `compile_commands.json` is generated in the `build/` directory for editor and
 tooling integration.
+
+## Test
+
+Tests are enabled by default and registered with CTest:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+To configure without tests:
+
+```sh
+cmake -S . -B build -DWYVERN_BUILD_TESTS=OFF
+```
 
 ## Clean rebuild
 

@@ -1,35 +1,45 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
-project(WyvernChess)
+project(WyvernChess LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (MSVC)
-    set(CMAKE_CXX_FLAGS "/Ox /W1 /WX /EHsc")
-    set(CMAKE_CXX_FLAGS_DEBUG "/Od /W1 /WX /EHsc")
-else()
-    set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -Werror")
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-set(CMAKE_CXX_STANDARD 20)
+option(WYVERN_BUILD_TESTS "Build WyvernChess tests" ON)
+option(WYVERN_ENABLE_LTO "Enable interprocedural optimization when supported" ON)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT err)
 
-add_executable(wyvernchess src/main.cpp
-    src/evaluate.cpp
-    src/magicbb.cpp
-    src/movegen.cpp
-    src/position.cpp
-    src/search.cpp
-    src/transposition.cpp
-    src/utils.cpp
-)
+function(wyvern_apply_common_options target_name)
+    target_compile_features(${target_name} PUBLIC cxx_std_20)
 
-if(ipo_supported)
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /W1 /WX /EHsc)
+    else()
+        target_compile_options(${target_name} PRIVATE -Wall -Wextra -Werror)
+    endif()
+
+    if(WYVERN_ENABLE_LTO AND ipo_supported)
+        set_property(TARGET ${target_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+endfunction()
+
+if(WYVERN_ENABLE_LTO AND ipo_supported)
     message(STATUS "LTO enabled")
-    set_property(TARGET wyvernchess PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-else()
+elseif(WYVERN_ENABLE_LTO)
     message(STATUS "LTO not supported: <${err}>")
+endif()
+
+add_subdirectory(src)
+
+if(WYVERN_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
